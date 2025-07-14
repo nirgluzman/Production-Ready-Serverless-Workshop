@@ -24,12 +24,21 @@ resource "aws_api_gateway_deployment" "main" {
 
   # Ensure deployment happens after all API components are created
   depends_on = [
-    aws_api_gateway_integration.get_index
+    aws_api_gateway_integration.get_index,
+    aws_api_gateway_integration.get_restaurants
   ]
 
   # Control the flow of our Terraform operations
   lifecycle {
     create_before_destroy = true # Ensures new deployment is created before the old one is destroyed
+  }
+
+  # Map of arbitrary keys and values that, when changed, will trigger a redeployment.
+  # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/api_gateway_deployment#argument-reference
+  triggers = {
+    # Force a new deployment on every terraform apply !!
+    # Terraform doesn't know which changes should trigger an API Gateway deployment, and it doesn't want to do it every time because it's not efficient and would take longer to apply changes.
+    redeployment = timestamp()
   }
 }
 
@@ -63,3 +72,33 @@ resource "aws_api_gateway_integration" "get_index" {
 # An HTTP or HTTP_PROXY integration with a connect_type of VPC_LINK is referred to as a provate integration and uses
 # a VPC link to connect to API Gateway to a NLB of a VPC.
 #
+
+
+# API Gateway resource for /restaurants endpoint
+# Creates a new path under the root resource to handle restaurant-related requests
+resource "aws_api_gateway_resource" "restaurants" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_rest_api.main.root_resource_id  # Attach to root resource (/)
+  path_part   = "restaurants"                                   # Creates /restaurants path
+}
+
+# HTTP GET method for /restaurants endpoint
+# Allows clients to retrieve restaurant data without authentication
+resource "aws_api_gateway_method" "get_restaurants" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.restaurants.id      # Link to /restaurants resource
+  http_method   = "GET"                                        # HTTP GET requests
+  authorization = "NONE"                                       # Public endpoint, no auth required
+}
+
+# Lambda proxy integration for GET /restaurants
+# Routes restaurant requests to the get_restaurants Lambda function
+resource "aws_api_gateway_integration" "get_restaurants" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.restaurants.id
+  http_method = aws_api_gateway_method.get_restaurants.http_method
+
+  integration_http_method = "POST"                                           # Lambda invocation always uses POST
+  type                   = "AWS_PROXY"                                      # Full request context passed to Lambda
+  uri                    = module.get_restaurants_lambda.lambda_function_invoke_arn  # Target Lambda function
+}
