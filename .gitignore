@@ -26,3 +26,9 @@ terraform.rc
 
 # Locally compiled or packaged artifacts (e.g. artifacts from Lambda Terraform modules)
 terraform/builds/*
+
+# Node.js dependencies
+**/node_modules/*
+
+# exclude local environment files
+.env
