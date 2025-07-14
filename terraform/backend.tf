@@ -7,5 +7,11 @@
 #
 
 terraform {
-  backend "local" {}
+backend "s3" {
+    bucket         = "prsls-tf-workshop-state-bucket-us-east-1-539323004237"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "prsls-tf-workshop-terraform-state-lock"
+  }
 }
