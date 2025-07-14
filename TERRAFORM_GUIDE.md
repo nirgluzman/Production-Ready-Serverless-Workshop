@@ -89,3 +89,17 @@ aws configure
 # Force unlock (use with caution)
 terraform force-unlock LOCK_ID
 ```
+
+## [Terraform Remote Backend](https://developer.hashicorp.com/terraform/language/backend/remote)
+
+Terraform stores the current state of the resources it has created in .tfstate files.
+Terraform remote backend stores the Terraform state file in a remote location, rather than on our local machine.
+
+Remote backend on AWS requires:
+- An encrypted S3 bucket for the state files.
+- A DynamoDB table for locking, to ensure that only one update can be performed at a time.
+
+### When to Run `terraform init -reconfigure`
+
+Execute `terraform init -reconfigure` when we modify our backend configuration (e.g., changing S3 bucket details or backend type), or to resolve local state and provider synchronization issues.
+This command forces Terraform to fully re-evaluate and re-initialize its backend and provider connections, ensuring consistency with our latest settings.
