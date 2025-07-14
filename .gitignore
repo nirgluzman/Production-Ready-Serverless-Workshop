@@ -10,8 +10,9 @@ crash.log
 crash.*.log
 
 # Exclude sensitive variables files
-*.tfvars
-*.tfvars.json
+# .tfvars files often contain sensitive information. Therefore, they are typically not source controlled.
+# *.tfvars
+# *.tfvars.json
 
 # Ignore override files
 override.tf
