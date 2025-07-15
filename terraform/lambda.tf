@@ -7,7 +7,7 @@ module "get_index_lambda" {
   version = "~> 8.0"                            # Pin to major version for stability
 
   # Function configuration
-  function_name = "${var.service_name}-get-index"  # Naming convention: service-function
+  function_name = "${var.service_name}-${var.stage_name}-get-index"  # Naming convention: service-function
   handler       = "index.handler"                  # Entry point: file.function
   runtime       = "nodejs22.x"                     # Node.js runtime version
 
@@ -47,7 +47,7 @@ module "get_restaurants_lambda" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "~> 8.0"
 
-  function_name = "${var.service_name}-get-restaurants"
+  function_name = "${var.service_name}-${var.stage_name}-get-restaurants"
   handler       = "index.handler"
   runtime       = "nodejs20.x"
 
