@@ -103,3 +103,55 @@ Remote backend on AWS requires:
 
 Execute `terraform init -reconfigure` when we modify our backend configuration (e.g., changing S3 bucket details or backend type), or to resolve local state and provider synchronization issues.
 This command forces Terraform to fully re-evaluate and re-initialize its backend and provider connections, ensuring consistency with our latest settings.
+
+## [Terraform Workspaces](https://developer.hashicorp.com/terraform/cli/workspaces) for Ephemeral (Temporary) Environments
+
+Terraform Workspaces let us manage multiple distinct states from a single configuration for feature development or testing.
+Workspaces let us quickly switch between multiple instances of a single configuration within its single backend.
+
+Workspace is basically a "state container", it lets us reuse the same `.tf` files against multiple independent state snapshots, so we can use Workspace to represent different environments.
+
+
+```bash
+terraform workspace <subcommand> [options] [args]
+
+Subcommands:
+    delete    Delete a workspace
+    list      List Workspaces
+    new       Create a new workspace
+    select    Select a workspace
+    show      Show the name of the current workspace
+```
+
+**Create an ephemeral environment (Terrafrom Workspace):**
+```bash
+terraform workspace new dev-featureA
+```
+
+**Deploy the latest code to the ephemeral environment:**
+After creating a Workspace, any `terraform plan` & `terraform apply` commands will be running against the new ephemeral environment.
+
+We can override the `stage_name` variable in the CLI, e.g.
+```bash
+terraform plan -var-file=environments/dev.tfvars -var "stage_name=dev-featureA"
+```
+
+**Destroy all AWS resources in the ephemeral environment:**
+When we're done with the test, we can delete the ephemeral environment. The first step - destroy the AWS resources:
+```bash
+terraform destroy -var-file=environments/dev.tfvars -var "stage_name=dev-featureA"
+```
+
+**Delete the Workspace in Terrafrom:**
+```bash
+terraform workspace select default       # switch out of the "dev-featureA" workspace to "default".
+terraform workspace delete dev-featureA  # delete "dev-featureA" workspace.
+```
+
+### Scripts to encapsulate the workflow
+
+```bash
+./script-create-temp-env.sh dev-featureA    # create a new ephemeral environment called "dev-featureA"
+./script-deploy-temp-env.sh dev-featureA    # deploy the latest code to the "dev-featureA" ephemeral environment
+./script-destroy-temp-env.sh dev-featureA   # delete the "dev-featureA" ephemeral environment
+```bash
