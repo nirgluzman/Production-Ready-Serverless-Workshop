@@ -13,12 +13,17 @@ module "get_index_lambda" {
 
   # Source code configuration
   source_path = [{
-    path = "${path.module}/../functions/get-index"  # Path to function source code
+    path = "${path.module}/../functions/get-index",  # Path to function source code
+    commands = [ # build commands that Terraform executes when packaging the Lambda function
+      "rm -rf node_modules", # Remove the existing node_modules directory
+      "npm run build",       # Install dependencies, exclude development dependencies
+      ":zip"                 # Special Terraform command to create a zip package of the source code. This ZIP file becomes the Lambda deployment package
+    ]
   }]
 
   # Environment variables for the Lambda function
   environment_variables = {
-    # Add environment-specific variables here as needed
+    restaurants_api = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
   }
 
   # Enable function versioning for better deployment management
@@ -40,7 +45,7 @@ module "get_index_lambda" {
 
 module "get_restaurants_lambda" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "~> 7.0"
+  version = "~> 8.0"
 
   function_name = "${var.service_name}-get-restaurants"
   handler       = "index.handler"
