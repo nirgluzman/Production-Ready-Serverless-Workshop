@@ -116,8 +116,9 @@ resource "aws_api_gateway_resource" "search" {
 resource "aws_api_gateway_method" "search_restaurants" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = aws_api_gateway_resource.search.id
-  http_method   = "POST"    # HTTP POST requests
-  authorization = "NONE"    # No authentication required
+  http_method   = "POST"                # HTTP POST requests
+  authorization = "COGNITO_USER_POOLS"  # Use Cognito User Pools for authorization, allowing only authenticated users to access this endpoint
+  authorizer_id = aws_api_gateway_authorizer.cognito.id # Link to the Cognito authorizer
 }
 
 # Lambda integration for the POST method
@@ -129,4 +130,14 @@ resource "aws_api_gateway_integration" "search_restaurants" {
   integration_http_method = "POST"
   type = "AWS_PROXY"
   uri  = module.search_restaurants_lambda.lambda_function_invoke_arn
+}
+
+# API Gateway Cognito Authorizer
+# Validates JWT tokens issued by Cognito User Pool before allowing access to protected endpoints.
+# Clients must include valid JWT token in Authorization header to access protected resources.
+resource "aws_api_gateway_authorizer" "cognito" {
+  name          = "CognitoAuthorizer"                   # Authorizer identifier
+  type          = "COGNITO_USER_POOLS"                  # Use Cognito User Pools for authorization
+  rest_api_id   = aws_api_gateway_rest_api.main.id      # Link to API Gateway
+  provider_arns = [aws_cognito_user_pool.main.arn]      # Cognito User Pool that issues valid tokens
 }
