@@ -86,9 +86,10 @@ resource "aws_api_gateway_resource" "restaurants" {
 # Allows clients to retrieve restaurant data without authentication
 resource "aws_api_gateway_method" "get_restaurants" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.restaurants.id      # Link to /restaurants resource
-  http_method   = "GET"                                        # HTTP GET requests
-  authorization = "NONE"                                       # Public endpoint, no auth required
+  resource_id   = aws_api_gateway_resource.restaurants.id  # Link to /restaurants resource.
+  http_method   = "GET"                                    # HTTP GET requests.
+  authorization = "AWS_IAM"                                # Use AWS IAM for authorization, allowing only AWS services/users to access this endpoint.
+                                                           # I.e. the caller needs to have the necessary IAM permission to access this endpoint.
 }
 
 # Lambda proxy integration for GET /restaurants
