@@ -25,7 +25,8 @@ resource "aws_api_gateway_deployment" "main" {
   # Ensure deployment happens after all API components are created
   depends_on = [
     aws_api_gateway_integration.get_index,
-    aws_api_gateway_integration.get_restaurants
+    aws_api_gateway_integration.get_restaurants,
+    aws_api_gateway_integration.search_restaurants
   ]
 
   # Control the flow of our Terraform operations
@@ -100,6 +101,32 @@ resource "aws_api_gateway_integration" "get_restaurants" {
   http_method = aws_api_gateway_method.get_restaurants.http_method
 
   integration_http_method = "POST"                                           # Lambda invocation always uses POST
-  type                   = "AWS_PROXY"                                      # Full request context passed to Lambda
-  uri                    = module.get_restaurants_lambda.lambda_function_invoke_arn  # Target Lambda function
+  type                    = "AWS_PROXY"                                       # Full request context passed to Lambda
+  uri                     = module.get_restaurants_lambda.lambda_function_invoke_arn  # Target Lambda function
+}
+
+# API Gateway resource for /restaurants/search endpoint
+resource "aws_api_gateway_resource" "search" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_resource.restaurants.id    # Attach to restaurants resource (/restaurants)
+  path_part   = "search"                                   # Creates /restaurants/search path
+}
+
+# HTTP POST method for /restaurants/search
+resource "aws_api_gateway_method" "search_restaurants" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.search.id
+  http_method   = "POST"    # HTTP POST requests
+  authorization = "NONE"    # No authentication required
+}
+
+# Lambda integration for the POST method
+resource "aws_api_gateway_integration" "search_restaurants" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.search.id
+  http_method = aws_api_gateway_method.search_restaurants.http_method
+
+  integration_http_method = "POST"
+  type = "AWS_PROXY"
+  uri  = module.search_restaurants_lambda.lambda_function_invoke_arn
 }

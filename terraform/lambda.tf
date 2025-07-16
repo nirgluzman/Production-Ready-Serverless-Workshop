@@ -66,9 +66,9 @@ module "get_restaurants_lambda" {
 
   function_name = "${var.service_name}-${var.stage_name}-get-restaurants"
   handler       = "index.handler"
-  runtime       = "nodejs20.x"
-  memory_size   = 1024               # Memory allocated to the function in MB
-  timeout       = 6                  # Lambda function timeout in seconds
+  runtime       = "nodejs22.x"
+  memory_size   = 1024        # Memory allocated to the function in MB
+  timeout       = 6           # Lambda function timeout in seconds
 
 
   source_path = [{
@@ -97,6 +97,50 @@ module "get_restaurants_lambda" {
     APIGatewayGet = {
       service    = "apigateway"
       source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/GET/restaurants"
+    }
+  }
+
+  # CloudWatch Logs retention to control costs and storage
+  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+}
+
+
+module "search_restaurants_lambda" {
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "~> 8.0"
+
+  function_name = "${var.service_name}-${var.stage_name}-search-restaurants"
+  handler       = "index.handler"
+  runtime       = "nodejs22.x"
+  memory_size   = 1024        # Memory allocated to the function in MB
+  timeout       = 6           # Lambda function timeout in seconds
+
+  source_path = [{
+    path = "${path.module}/../functions/search-restaurants"
+  }]
+
+  environment_variables = {
+    default_results = "10"  # Default number of restaurants to return
+    restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
+  }
+
+  attach_policy_statements = true
+  policy_statements = {
+    dynamodb_read = {
+      effect = "Allow"
+      actions = [
+        "dynamodb:Scan"
+      ]
+      resources = [module.dynamodb_restaurants_table.dynamodb_table_arn]
+    }
+  }
+
+  publish = true
+
+  allowed_triggers = {
+    APIGatewayGet = {
+      service    = "apigateway"
+      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/POST/restaurants/search"
     }
   }
 
