@@ -6,7 +6,12 @@ import Mustache from 'mustache'; // templating engine to inject dynamic data int
 import { AwsClient } from 'aws4fetch'; // signing utility - AWS client for making authenticated requests to AWS services
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SDK utility to get credentials from the default provider chain
 
-const restaurantsApiRoot = process.env.restaurants_api;
+// Environment variables
+const restaurantsApiRoot = process.env.restaurants_api; // API Gateway endpoint for /restaurants resource
+const cognitoUserPoolId = process.env.cognito_user_pool_id;
+const cognitoClientId = process.env.cognito_client_id;
+const awsRegion = process.env.AWS_REGION;
+
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Create an AWS client to make authenticated requests to AWS services.
@@ -20,17 +25,9 @@ const aws = new AwsClient({
   sessionToken: credentials.sessionToken,
 });
 
-let html;
-
-function loadHtml() {
-  if (!html) {
-    console.log('loading index.html...');
-    html = fs.readFileSync('static/index.html', 'utf-8');
-    console.log('loaded');
-  }
-
-  return html;
-}
+// Load the HTML template from the static directory.
+// This template will be used to render the final HTML response with dynamic data.
+const template = fs.readFileSync('static/index.html', 'utf-8');
 
 // Fetch restaurant data from your API Gateway endpoint.
 const getRestaurants = async () => {
@@ -45,10 +42,22 @@ const getRestaurants = async () => {
 };
 
 export const handler = async (event, context) => {
-  const template = loadHtml();
   const restaurants = await getRestaurants();
+  console.log(`found ${restaurants.length} restaurants`);
+
   const dayOfWeek = days[new Date().getDay()];
-  const html = Mustache.render(template, { dayOfWeek, restaurants });
+
+  const view = {
+    awsRegion,
+    cognitoUserPoolId,
+    cognitoClientId,
+    dayOfWeek,
+    restaurants,
+    searchUrl: `${restaurantsApiRoot}/search`,
+  };
+
+  const html = Mustache.render(template, view);
+
   const response = {
     statusCode: 200,
     headers: {
