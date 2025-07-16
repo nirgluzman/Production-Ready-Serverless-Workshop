@@ -11,6 +11,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "aws4fetch": "^1.0.20",
     "mustache": "^4.2.0"
+  },
+  "devDependencies": {
+    "@aws-sdk/credential-providers": "^3.846.0"
   }
 }
