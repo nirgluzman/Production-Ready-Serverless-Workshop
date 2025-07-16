@@ -26,6 +26,21 @@ module "get_index_lambda" {
     restaurants_api = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
   }
 
+  # IAM permissions attached to the Lambda function's execution role
+  attach_policy_statements = true
+  policy_statements = {
+    # IAM statements which will be generated as IAM policy
+    restaurants_api_access = {
+      effect = "Allow"
+      actions = [
+        "execute-api:Invoke"  # Allow invoking the API Gateway /restaurants endpoint
+      ]
+      resources = [
+        "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/GET/restaurants" # API Gateway endpoint ARN
+        ]
+    }
+  }
+
   # Enable function versioning for better deployment management
   publish = true
 
