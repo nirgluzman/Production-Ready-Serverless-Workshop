@@ -8,8 +8,10 @@ module "get_index_lambda" {
 
   # Function configuration
   function_name = "${var.service_name}-${var.stage_name}-get-index"  # Naming convention: service-function
-  handler       = "index.handler"                  # Entry point: file.function
-  runtime       = "nodejs22.x"                     # Node.js runtime version
+  handler       = "index.handler"     # Entry point: file.function
+  runtime       = "nodejs22.x"        # Node.js runtime version
+  memory_size   = 1024                # Memory allocated to the function in MB
+  timeout       = 6                   # Lambda function timeout in seconds
 
   # Source code configuration
   source_path = [{
@@ -65,6 +67,9 @@ module "get_restaurants_lambda" {
   function_name = "${var.service_name}-${var.stage_name}-get-restaurants"
   handler       = "index.handler"
   runtime       = "nodejs20.x"
+  memory_size   = 1024               # Memory allocated to the function in MB
+  timeout       = 6                  # Lambda function timeout in seconds
+
 
   source_path = [{
     path = "${path.module}/../functions/get-restaurants"
