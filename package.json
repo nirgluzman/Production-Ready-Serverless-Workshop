@@ -23,5 +23,8 @@
     "@aws-sdk/lib-dynamodb": "^3.844.0",
     "cheerio": "^1.1.0",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
   }
 }
