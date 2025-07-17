@@ -2,6 +2,8 @@
 // The declaration and assignment code will run ONLY the first time our code executes in a new worker instance.
 // This helps improve performance and allows us to load and cache static data only on the first invocation, which helps improve performance on subsequent invocations.
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Mustache from 'mustache'; // templating engine to inject dynamic data into HTML
 import { AwsClient } from 'aws4fetch'; // signing utility - AWS client for making authenticated requests to AWS services
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SDK utility to get credentials from the default provider chain
@@ -27,7 +29,9 @@ const aws = new AwsClient({
 
 // Load the HTML template from the static directory.
 // This template will be used to render the final HTML response with dynamic data.
-const template = fs.readFileSync('static/index.html', 'utf-8');
+const __filename = fileURLToPath(import.meta.url); // Convert module URL to file path (ES modules don't have __filename)
+const __dirname = path.dirname(__filename); // Get directory name (ES modules don't have __dirname)
+const template = fs.readFileSync(path.join(__dirname, 'static/index.html'), 'utf-8'); // Read template file relative to this module
 
 // Fetch restaurant data from your API Gateway endpoint.
 const getRestaurants = async () => {
