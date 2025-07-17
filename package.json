@@ -20,6 +20,7 @@
   "homepage": "https://github.com/nirgluzman/Production-Ready-Serverless-Workshop#readme",
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.844.0",
-    "@aws-sdk/lib-dynamodb": "^3.844.0"
+    "@aws-sdk/lib-dynamodb": "^3.844.0",
+    "vitest": "^3.2.4"
   }
 }
