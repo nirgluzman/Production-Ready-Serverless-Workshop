@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/nirgluzman/Production-Ready-Serverless-Workshop#readme",
   "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.848.0",
     "@aws-sdk/client-dynamodb": "^3.844.0",
     "@aws-sdk/credential-providers": "^3.848.0",
     "@aws-sdk/lib-dynamodb": "^3.844.0",
