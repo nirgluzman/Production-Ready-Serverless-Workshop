@@ -31,3 +31,9 @@ const viaHandler = async (event, functionName) => {
  * @returns {Object} The Lambda function response
  */
 export const we_invoke_get_index = () => viaHandler({}, 'get-index');
+
+/**
+ * Test helper to invoke the get-restaurants Lambda function
+ * @returns {Object} The Lambda function response
+ */
+export const we_invoke_get_restaurants = () => viaHandler({}, 'get-restaurants');
