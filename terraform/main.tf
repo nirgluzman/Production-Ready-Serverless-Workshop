@@ -101,7 +101,7 @@ resource "aws_cognito_user_pool_client" "server_client" {
 
   # Authentication flows allowed for this client
   explicit_auth_flows = [
-    "ALLOW_ADMIN_USER_PASSWORD_AUTH",  # Admin-initiated auth with username/password
+    "ALLOW_ADMIN_USER_PASSWORD_AUTH",  # Admin-initiated auth with username/password - allows us to call the Cognito admin endpoints to register users and sign-in as them
     "ALLOW_REFRESH_TOKEN_AUTH"         # Allow token refresh for session management
   ]
 }
