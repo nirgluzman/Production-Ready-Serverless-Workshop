@@ -1,7 +1,16 @@
 // Path to the application root directory
 const APP_ROOT = '../../';
+
 // Import lodash utility library
 import _ from 'lodash';
+
+// Signing utility - AWS client for making authenticated requests to AWS services
+import { AwsClient } from 'aws4fetch';
+// AWS SDK utility to get credentials from the default provider chain
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+
+// Determine invocation mode: 'handler' for local, 'http' for deployed API
+const mode = process.env.TEST_MODE;
 
 /**
  * Invokes a Lambda function handler directly with the provided event
@@ -18,7 +27,7 @@ const viaHandler = async (event, functionName) => {
   // Invoke the handler with event and context
   const response = await handler(event, context);
   // Extract content type with default to application/json
-  const contentType = _.get(response, 'headers.Content-Type', 'application/json');
+  const contentType = _.get(response, 'headers.content-type', 'application/json');
   // Parse JSON response body if content type is application/json
   if (response.body && contentType === 'application/json') {
     response.body = JSON.parse(response.body);
@@ -27,10 +36,82 @@ const viaHandler = async (event, functionName) => {
 };
 
 /**
+ * Invokes an API Gateway endpoint via HTTP request
+ * @param {string} relPath - The relative path of the API endpoint
+ * @param {string} method - The HTTP method (GET, POST, etc.)
+ * @param {Object} opts - Request options including body, auth, and iam_auth
+ * @returns {Object} The HTTP response with statusCode, headers, and body
+ */
+const viaHttp = async (relPath, method, opts) => {
+  // Construct the full URL using the API Gateway URL from environment variables
+  const url = `${process.env.api_gateway_url}/${relPath}`;
+  console.info(`invoking via HTTP ${method} ${url}`);
+
+  // Extract request body from options if provided
+  const body = _.get(opts, 'body');
+  // Initialize empty headers object
+  const headers = {};
+
+  // Add Authorization header if auth option is provided
+  // Used for authenticating against Cognito-protected endpoints (i.e. search-restaurants)
+  const authHeader = _.get(opts, 'auth');
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+
+  let res;
+  // Use AWS IAM authentication if iam_auth option is true
+  if (_.get(opts, 'iam_auth', false) === true) {
+    // Get AWS credentials from the default provider chain
+    const credentialProvider = fromNodeProviderChain();
+    const credentials = await credentialProvider();
+    // Create AWS client with credentials for signing requests
+    const aws = new AwsClient({
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      sessionToken: credentials.sessionToken,
+    });
+
+    // Make authenticated request using AWS signature
+    res = await aws.fetch(url, { method, headers, body });
+  } else {
+    // Make standard unauthenticated HTTP request
+    res = await fetch(url, { method, headers, body });
+  }
+
+  // Convert response headers from Headers object to plain JavaScript object
+  const respHeaders = {};
+  for (const [key, value] of res.headers.entries()) {
+    respHeaders[key] = value;
+  }
+
+  // Parse response body based on content type (JSON or text)
+  const respBody = respHeaders['content-type'] === 'application/json' ? await res.json() : await res.text();
+
+  // Return standardized response object that matches Lambda function response format
+  return {
+    statusCode: res.status,
+    body: respBody,
+    headers: respHeaders,
+  };
+};
+
+/**
  * Test helper to invoke the get-index Lambda function
  * @returns {Object} The Lambda function response
  */
-export const we_invoke_get_index = () => viaHandler({}, 'get-index');
+export const we_invoke_get_index = async () => {
+  // Choose invocation method based on TEST_MODE environment variable
+  // This allows the same test to run against local handlers or deployed API
+  switch (mode) {
+    case 'handler':
+      return await viaHandler({}, 'get-index');
+    case 'http':
+      return await viaHttp('', 'GET');
+    default:
+      throw new Error(`unsupported mode: ${mode}`);
+  }
+};
 
 /**
  * Test helper to invoke the get-restaurants Lambda function
