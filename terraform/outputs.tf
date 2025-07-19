@@ -1,7 +1,7 @@
 # Terraform outputs - values that are displayed after deployment.
 # These outputs can be referenced by other Terraform configurations or used for testing
 
-output "AWS_REGION" {
+output "region" {
   description = "AWS region"
   value       = "${var.aws_region}"
 }
