@@ -135,11 +135,21 @@ export const we_invoke_get_restaurants = async () => {
 /**
  * Test helper to invoke the search-restaurants Lambda function
  * @param {string} theme - The search theme to be included in the request body
+ * @param {Object} user - The authenticated Cognito user object (required for HTTP mode) - contains the Cognito idToken needed for authorization
  * @returns {Object} The Lambda function response
  */
-export const we_invoke_search_restaurants = (theme) => {
-  let event = {
-    body: JSON.stringify({ theme }),
-  };
-  return viaHandler(event, 'search-restaurants');
+export const we_invoke_search_restaurants = async (theme, user) => {
+  const body = JSON.stringify({ theme });
+
+  // Choose invocation method based on TEST_MODE environment variable
+  // This allows the same test to run against local handlers or deployed API
+  switch (mode) {
+    case 'handler':
+      return await viaHandler({ body }, 'search-restaurants');
+    case 'http':
+      const auth = user.idToken;
+      return await viaHttp('restaurants/search', 'POST', { body, auth });
+    default:
+      throw new Error(`unsupported mode: ${mode}`);
+  }
 };
