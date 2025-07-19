@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node --env-file=.env seed-restaurants.mjs",
+    "bootstrap-db": "node --env-file=.env seed-restaurants.mjs",
     "test": "vitest"
   },
   "repository": {

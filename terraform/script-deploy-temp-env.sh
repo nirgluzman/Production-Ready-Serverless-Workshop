@@ -33,4 +33,4 @@ terraform apply -var-file=environments/dev.tfvars -var "stage_name=$env"  # Depl
 echo "Seeding data for ephemeral environment $env"
 terraform output > ../.env
 cd ..
-npm run dev
+npm run bootstrap-db
