@@ -29,3 +29,8 @@ output "cognito_client_id" {
   description = "ID of the web Cognito client"
   value       = "${aws_cognito_user_pool_client.web_client.id}"
 }
+
+output "cognito_server_client_id" {
+  description = "ID of the server Cognito client"
+  value       = "${aws_cognito_user_pool_client.server_client.id}"
+}
