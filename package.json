@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node --env-file=.env seed-restaurants.mjs"
+    "dev": "node --env-file=.env seed-restaurants.mjs",
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
