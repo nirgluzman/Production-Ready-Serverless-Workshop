@@ -37,3 +37,15 @@ export const we_invoke_get_index = () => viaHandler({}, 'get-index');
  * @returns {Object} The Lambda function response
  */
 export const we_invoke_get_restaurants = () => viaHandler({}, 'get-restaurants');
+
+/**
+ * Test helper to invoke the search-restaurants Lambda function
+ * @param {string} theme - The search theme to be included in the request body
+ * @returns {Object} The Lambda function response
+ */
+export const we_invoke_search_restaurants = (theme) => {
+  let event = {
+    body: JSON.stringify({ theme }),
+  };
+  return viaHandler(event, 'search-restaurants');
+};
