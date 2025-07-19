@@ -65,7 +65,7 @@ export const handler = async (event, context) => {
   const response = {
     statusCode: 200,
     headers: {
-      'Content-Type': 'text/html; charset=UTF-8', // Tell browser this is HTML with UTF-8 encoding
+      'content-type': 'text/html; charset=UTF-8', // Tell browser this is HTML with UTF-8 encoding
     },
     body: html, // HTML content served to the browser
   };

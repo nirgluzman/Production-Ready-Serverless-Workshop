@@ -26,7 +26,7 @@ describe(`When we invoke the GET / endpoint`, () => {
 
     // Verify HTTP response status and Content-Type header
     expect(res.statusCode).toEqual(200);
-    expect(res.headers['Content-Type']).toEqual('text/html; charset=UTF-8');
+    expect(res.headers['content-type']).toEqual('text/html; charset=UTF-8');
     expect(res.body).toBeDefined();
 
     // Parse the HTML response with cheerio
