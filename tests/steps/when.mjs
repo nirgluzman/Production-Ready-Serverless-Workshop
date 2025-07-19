@@ -117,7 +117,20 @@ export const we_invoke_get_index = async () => {
  * Test helper to invoke the get-restaurants Lambda function
  * @returns {Object} The Lambda function response
  */
-export const we_invoke_get_restaurants = () => viaHandler({}, 'get-restaurants');
+export const we_invoke_get_restaurants = async () => {
+  // Choose invocation method based on TEST_MODE environment variable
+  // This allows the same test to run against local handlers or deployed API
+  switch (mode) {
+    case 'handler':
+      return await viaHandler({}, 'get-restaurants');
+    case 'http':
+      // Use IAM authentication to sign the request with AWS credentials
+      // This is required because the /restaurants endpoint is protected by IAM authorization in API Gateway
+      return await viaHttp('restaurants', 'GET', { iam_auth: true });
+    default:
+      throw new Error(`unsupported mode: ${mode}`);
+  }
+};
 
 /**
  * Test helper to invoke the search-restaurants Lambda function
