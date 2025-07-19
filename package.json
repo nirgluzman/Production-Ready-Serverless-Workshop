@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "bootstrap-db": "node --env-file=.env seed-restaurants.mjs",
-    "test": "vitest"
+    "test:integration": "cross-env TEST_MODE=handler vitest",
+    "test:e2e": "cross-env TEST_MODE=http vitest"
   },
   "repository": {
     "type": "git",
@@ -21,12 +22,12 @@
   "homepage": "https://github.com/nirgluzman/Production-Ready-Serverless-Workshop#readme",
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.844.0",
+    "@aws-sdk/credential-providers": "^3.848.0",
     "@aws-sdk/lib-dynamodb": "^3.844.0",
+    "aws4fetch": "^1.0.20",
     "cheerio": "^1.1.0",
     "cross-env": "^7.0.3",
+    "lodash": "^4.17.21",
     "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "lodash": "^4.17.21"
   }
 }
