@@ -1,7 +1,9 @@
 # Terraform outputs - values that are displayed after deployment.
 # These outputs can be referenced by other Terraform configurations or used for testing
 
-output "region" {
+# AWS_REGION is the standard and most widely adopted environment variable for specifying the AWS region,
+# making it the default across all services for consistent and predictable behavior.
+output "AWS_REGION" {
   description = "AWS region"
   value       = "${var.aws_region}"
 }
