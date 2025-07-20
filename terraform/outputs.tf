@@ -18,6 +18,11 @@ output "stage_name" {
   value       = "${var.stage_name}"
 }
 
+output "ssm_stage_name" {
+  description = "Service name"
+  value       = "${local.ssm_stage_name}"
+}
+
 output "api_gateway_url" {
   description = "The URL of the API Gateway"
   value       = "${aws_api_gateway_stage.main.invoke_url}"  # API Gateway invoke URL
