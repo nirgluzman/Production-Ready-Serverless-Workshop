@@ -17,7 +17,7 @@ const dynamodbClient = new DynamoDB({}); // Low-level DynamoDB client
 const dynamodb = DynamoDBDocumentClient.from(dynamodbClient); // Document client for easier JSON handling
 
 // Environment variables
-const { service_name, stage_name } = process.env;
+const { service_name, ssm_stage_name } = process.env;
 const tableName = process.env.restaurants_table; // DynamoDB table name
 
 // Fetch restaurants from DynamoDB table
@@ -59,7 +59,7 @@ export const handler = middy(async (event, context) => {
     setToContext: true,
     // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
     fetchData: {
-      config: `/${service_name}/${stage_name}/get-restaurants/config`,
+      config: `/${service_name}/${ssm_stage_name}/get-restaurants/config`,
     },
   })
 );

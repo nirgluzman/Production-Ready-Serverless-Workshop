@@ -17,7 +17,7 @@ const dynamodbClient = new DynamoDB({});
 const dynamodb = DynamoDBDocumentClient.from(dynamodbClient);
 
 // Environment variables configuration
-const { service_name, stage_name } = process.env;
+const { service_name, ssm_stage_name } = process.env;
 const tableName = process.env.restaurants_table; // DynamoDB table name from environment
 
 // Search restaurants by theme using DynamoDB scan with filter
@@ -61,7 +61,7 @@ export const handler = middy(async (event, context) => {
     setToContext: true,
     // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
     fetchData: {
-      config: `/${service_name}/${stage_name}/search-restaurants/config`,
+      config: `/${service_name}/${ssm_stage_name}/search-restaurants/config`,
     },
   })
 );
