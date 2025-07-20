@@ -7,6 +7,17 @@ output "AWS_REGION" {
   description = "AWS region"
   value       = "${var.aws_region}"
 }
+
+output "service_name" {
+  description = "Service name"
+  value       = "${var.service_name}"
+}
+
+output "stage_name" {
+  description = "Stage name"
+  value       = "${var.stage_name}"
+}
+
 output "api_gateway_url" {
   description = "The URL of the API Gateway"
   value       = "${aws_api_gateway_stage.main.invoke_url}"  # API Gateway invoke URL
