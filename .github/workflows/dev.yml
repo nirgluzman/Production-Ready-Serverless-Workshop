@@ -26,10 +26,14 @@ on:
   # push:
   #   branches: [main]
 
+# variables that are available to the steps of all jobs in the workflow.
+# NOTE: variables in the env map cannot be defined in terms of other variables in the map.
 env:
-  AWS_REGION: us-east-1
-  STAGE_NAME: dev
-  SERVICE_NAME: prsls-tf-workshop
+  AWS_REGION: us-east-1 # AWS region where the resources will be deployed
+  STAGE_NAME: dev # name of the stage, used for naming resources
+  SERVICE_NAME: prsls-tf-workshop # name of the service, used for naming resources
+  TEMP_ENV_NAME: dev-ci-${{ github.run_id }} # unique name for the temporary environment based on the GitHub run ID
+
 jobs:
   deploy:
     # this prevents concurrent builds
@@ -83,11 +87,15 @@ jobs:
       # Therefore, we have just mirrored the steps performed by our scripts.
 
       # initialize a Terraform temp environment and deploy resources
-      - name: Create temp environment "dev-ci"
+      - name: Create temp environment
         run: |
           cd terraform
-          terraform workspace new dev-ci
-          terraform apply -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=dev-ci" -var "service_name=${{ env.SERVICE_NAME }}"
+          terraform workspace new ${{ env.TEMP_ENV_NAME }} || terraform workspace select ${{ env.TEMP_ENV_NAME }}
+          terraform apply -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "stage_name=${{ env.TEMP_ENV_NAME }}" \
+            -var "service_name=${{ env.SERVICE_NAME }}" \
+            -var "ssm_stage_name=${{ env.STAGE_NAME }}"
           terraform output > ../.env
 
       # seed data for the Terraform temp environment
@@ -103,11 +111,19 @@ jobs:
       - name: Destroy temp environment
         run: |
           cd terraform
-          terraform destroy -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=dev-ci" -var "service_name=${{ env.SERVICE_NAME }}"
+          terraform destroy -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "stage_name=${{ env.TEMP_ENV_NAME }}" \
+            -var "service_name=${{ env.SERVICE_NAME }}" \
+            -var "ssm_stage_name=${{ env.STAGE_NAME }}"
           terraform workspace select default
-          terraform workspace delete dev-ci
+          terraform workspace delete ${{ env.TEMP_ENV_NAME }}
 
       - name: Deploy to dev environment
         run: |
           cd terraform
-          terraform apply -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=${{ env.STAGE_NAME }}" -var "service_name=${{ env.SERVICE_NAME }}"
+          terraform apply -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "stage_name=${{ env.STAGE_NAME }}" \
+            -var "service_name=${{ env.SERVICE_NAME }}" \
+            -var "ssm_stage_name=${{ env.STAGE_NAME }}"
