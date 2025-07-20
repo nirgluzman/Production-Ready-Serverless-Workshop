@@ -1,0 +1,20 @@
+{
+  "name": "get-restaurants",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm ci --omit=dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@middy/core": "^6.4.1",
+    "@middy/ssm": "^6.4.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.849.0"
+  }
+}
