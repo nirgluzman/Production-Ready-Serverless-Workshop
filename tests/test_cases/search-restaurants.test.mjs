@@ -38,7 +38,8 @@ describe('Given an authenticated user', () => {
   // Test suite for the restaurant search endpoint with a specific theme
   describe(`When we invoke the POST /restaurants/search endpoint with theme 'cartoon'`, () => {
     // Test case verifying the search results for 'cartoon' theme
-    it(`Should return an array of 4 restaurants`, async () => {
+    // Test tags in the name ([int][e2e]) indicate this test can run in both integration and e2e test modes
+    it(`[int][e2e] Should return an array of 4 restaurants`, async () => {
       // Call the search endpoint with 'cartoon' theme through test helper
       // Pass the authenticated user for HTTP mode which needs the idToken
       let res = await when.we_invoke_search_restaurants('cartoon', user);

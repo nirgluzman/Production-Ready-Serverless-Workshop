@@ -17,7 +17,8 @@ import * as when from '../steps/when.mjs';
 // Test suite for the restaurants listing endpoint
 describe(`When we invoke the GET /restaurants endpoint`, () => {
   // Test case verifying the restaurants data structure and count
-  it(`Should return an array of 8 restaurants`, async () => {
+  // Test tags in the name ([int][e2e]) indicate this test can run in both integration and e2e test modes
+  it(`[int][e2e] Should return an array of 8 restaurants`, async () => {
     // Call the restaurants endpoint through test helper
     const res = await when.we_invoke_get_restaurants();
 
