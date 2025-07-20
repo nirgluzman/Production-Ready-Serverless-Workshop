@@ -1,0 +1,90 @@
+# GitHub Actions Workflow for Application Deployment
+#
+# This workflow automates the deployment of the serverless application to the development environment.
+# It performs the following steps:
+# 1. Sets up the required tools (Node.js, Terraform)
+# 2. Configures AWS credentials using OIDC for secure authentication
+# 3. Deploys infrastructure using Terraform
+# 4. Runs integration and end-to-end tests against the deployed environment
+#
+# The workflow can be triggered in two ways:
+# - Manually through the GitHub Actions UI (workflow_dispatch)
+# - Automatically on push to the main branch
+#
+# It uses concurrency controls to prevent multiple deployments running simultaneously.
+
+name: deploy dev
+
+on:
+  # enable a workflow to be triggered manually
+  workflow_dispatch:
+
+  # # trigger the workflow on push or pull request events for the "main" branch
+  # push:
+  #   branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    # this prevents concurrent builds
+    concurrency: dev-environment
+
+    # type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # enable OpenID Connect for AWS - authenticating to AWS via the OIDC Provider
+    permissions:
+      id-token: write # this is required for requesting the JWT
+      contents: write
+
+    steps:
+      # checkout the repository to the GitHub Actions runner
+      # $GITHUB_WORKSPACE defines the directory where our repository is checked out during a workflow run
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # download and cache distribution of the requested Node.js version
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # install the latest version of Terraform CLI
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # configure AWS credentials and region environment variables
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE}}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GithubActionsSession-${{ github.run_id }} # identifier for the assumed role session
+
+      # install dependencies
+      - name: npm ci
+        run: npm ci
+
+      # initialize the Terraform working directory
+      - name: Terraform init
+        run: |
+          cd terraform
+          terraform init -backend-config=config/dev.backend.hcl
+
+      - name: Deploy to dev
+        run: |
+          cd terraform
+          terraform apply -auto-approve -var-file=environments/dev.tfvars
+
+      - name: Generate .env file
+        run: |
+          cd terraform
+          terraform output > ../.env
+
+      - name: run integration test
+        run: npm run test:integration
+
+      - name: run end-to-end tests
+        run: npm run test:e2e
