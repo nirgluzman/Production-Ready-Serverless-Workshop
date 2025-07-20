@@ -7,9 +7,8 @@ import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // Initialize DynamoDB clients
-const dynamodbClient = new DynamoDB({
-  region: process.env.region, // AWS region for DynamoDB operations
-});
+// AWS region is configured via the AWS_REGION environment variable
+const dynamodbClient = new DynamoDB({});
 const dynamodb = DynamoDBDocumentClient.from(dynamodbClient); // Document client for easier JSON handling
 
 // Sample restaurant data - fictional restaurants from various TV shows and movies
