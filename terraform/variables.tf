@@ -17,3 +17,12 @@ variable "service_name" {
   description = "Service name"
   type        = string
 }
+
+# Stage name used specifically for SSM parameter paths
+# This allows for more flexible parameter organization strategies
+# For example, you might want dev, test, and staging environments to share the same SSM parameters
+variable "ssm_stage_name" {
+  description = "Stage name used in SSM parameter paths (e.g., /service/stage/...). If not provided, defaults to stage_name value."
+  type        = string
+  default     = null  # When null, the main stage_name will be used instead
+}
