@@ -74,22 +74,40 @@ module "get_restaurants_lambda" {
 
 
   source_path = [{
-    path = "${path.module}/../functions/get-restaurants"
+    path = "${path.module}/../functions/get-restaurants",
+    commands = [
+      "rm -rf node_modules", # Remove the existing node_modules directory
+      "npm run build",       # Install dependencies, exclude development dependencies
+      ":zip"                 # Special Terraform command to create a zip package of the source code. This ZIP file becomes the Lambda deployment package
+    ]
   }]
 
   environment_variables = {
-    default_results = "10"  # Default number of restaurants to return
     restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
+    service_name      = var.service_name
+    stage_name        = var.stage_name
   }
 
   attach_policy_statements = true
   policy_statements = {
+    # Allow read access to the DynamoDB table
     dynamodb_read = {
       effect = "Allow"
       actions = [
         "dynamodb:Scan"
       ]
       resources = [module.dynamodb_restaurants_table.dynamodb_table_arn]
+    }
+    # Allow access to SSM parameters for configuration
+    ssm_access = {
+      effect = "Allow"
+      actions = [
+        # The asterisk (*) in 'ssm:GetParameters*' grants permissions for both 'ssm:GetParameters' and 'ssm:GetParametersByPath' operations
+        "ssm:GetParameters*"
+      ]
+      resources = [
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${var.stage_name}/get-restaurants/config"
+      ]
     }
   }
 
@@ -119,21 +137,39 @@ module "search_restaurants_lambda" {
 
   source_path = [{
     path = "${path.module}/../functions/search-restaurants"
+    commands = [
+      "rm -rf node_modules", # Remove the existing node_modules directory
+      "npm run build",       # Install dependencies, exclude development dependencies
+      ":zip"                 # Special Terraform command to create a zip package of the source code. This ZIP file becomes the Lambda deployment package
+    ]
   }]
 
   environment_variables = {
-    default_results = "10"  # Default number of restaurants to return
     restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
+    service_name      = var.service_name
+    stage_name        = var.stage_name
   }
 
   attach_policy_statements = true
   policy_statements = {
+    # Allow read access to the DynamoDB table
     dynamodb_read = {
       effect = "Allow"
       actions = [
         "dynamodb:Scan"
       ]
       resources = [module.dynamodb_restaurants_table.dynamodb_table_arn]
+    }
+    # Allow access to SSM parameters for configuration
+    ssm_access = {
+      effect = "Allow"
+      actions = [
+        # The asterisk (*) in 'ssm:GetParameters*' grants permissions for both 'ssm:GetParameters' and 'ssm:GetParametersByPath' operations
+        "ssm:GetParameters*"
+      ]
+      resources = [
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${var.stage_name}/search-restaurants/config"
+      ]
     }
   }
 
