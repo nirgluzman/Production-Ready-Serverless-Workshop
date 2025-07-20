@@ -26,8 +26,12 @@ env=$1  # Environment name from command line argument.
 echo "Deploying updates to ephemeral environment $env"
 
 # Select the target Workspace and deploy.
-terraform workspace select $env                                           # Switch to ephemeral Workspace
-terraform apply -auto-approve -var-file=environments/dev.tfvars -var "stage_name=$env"  # Deploy with custom stage_name
+
+# Switch to ephemeral Workspace
+terraform workspace select $env
+
+# Deploy with custom stage_name and SSM stage name.
+terraform apply -auto-approve -var-file=environments/dev.tfvars -var "stage_name=$env" -var "ssm_stage_name=dev"
 
 # Seed data for the ephemeral environment.
 echo "Seeding data for ephemeral environment $env"

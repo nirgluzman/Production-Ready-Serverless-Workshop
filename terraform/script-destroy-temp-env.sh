@@ -22,8 +22,12 @@ env=$1  # Environment name from command line argument
 echo "Destroying ephemeral environment $env"
 
 # Select target Workspace and destroy all resources.
-terraform workspace select $env                                             # Switch to ephemeral Workspace.
-terraform destroy -auto-approve -var-file=environments/dev.tfvars -var "stage_name=$env"  # Destroy AWS resources.
+
+# Switch to ephemeral Workspace.
+terraform workspace select $env
+
+# Destroy all resources in the Workspace (remove all AWS resources and delete the state file for this Workspace).
+terraform destroy -auto-approve -var-file=environments/dev.tfvars -var "stage_name=$env" -var "ssm_stage_name=dev"
 
 # Clean up Workspace after resource destruction
 terraform workspace select default  # Switch away from target workspace.
