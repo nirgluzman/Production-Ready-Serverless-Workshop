@@ -86,6 +86,7 @@ module "get_restaurants_lambda" {
     restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
     service_name      = var.service_name
     stage_name        = var.stage_name
+    ssm_stage_name    = local.ssm_stage_name
   }
 
   attach_policy_statements = true
@@ -106,7 +107,7 @@ module "get_restaurants_lambda" {
         "ssm:GetParameters*"
       ]
       resources = [
-        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${var.stage_name}/get-restaurants/config"
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${local.ssm_stage_name}/get-restaurants/config"
       ]
     }
   }
@@ -148,6 +149,7 @@ module "search_restaurants_lambda" {
     restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
     service_name      = var.service_name
     stage_name        = var.stage_name
+    ssm_stage_name    = local.ssm_stage_name
   }
 
   attach_policy_statements = true
@@ -168,7 +170,7 @@ module "search_restaurants_lambda" {
         "ssm:GetParameters*"
       ]
       resources = [
-        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${var.stage_name}/search-restaurants/config"
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${local.ssm_stage_name}/search-restaurants/config"
       ]
     }
   }
