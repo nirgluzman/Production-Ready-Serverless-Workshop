@@ -1,17 +1,20 @@
-# GitHub Actions Workflow for Application Deployment
+# GitHub Actions Workflow for Deployment to Development Environment
 #
-# This workflow automates the deployment of the serverless application to the development environment.
+# This workflow automates the deployment of the serverless application to a development environment after testing in a temporary environment.
 # It performs the following steps:
 # 1. Sets up the required tools (Node.js, Terraform)
 # 2. Configures AWS credentials using OIDC for secure authentication
-# 3. Deploys infrastructure using Terraform
+# 3. Creates and deploys infrastructure to a temporary environment using Terraform
 # 4. Runs integration and end-to-end tests against the deployed environment
+# 5. Destroys the temporary environment after testing
+# 6. Deploys to development environment
 #
 # The workflow can be triggered in two ways:
 # - Manually through the GitHub Actions UI (workflow_dispatch)
 # - Automatically on push to the main branch
 #
 # It uses concurrency controls to prevent multiple deployments running simultaneously.
+#
 
 name: deploy dev
 
@@ -25,7 +28,8 @@ on:
 
 env:
   AWS_REGION: us-east-1
-
+  STAGE_NAME: dev
+  SERVICE_NAME: prsls-tf-workshop
 jobs:
   deploy:
     # this prevents concurrent builds
@@ -68,23 +72,42 @@ jobs:
         run: npm ci
 
       # initialize the Terraform working directory
-      - name: Terraform init
+      - name: terraform init
         run: |
           cd terraform
           terraform init -backend-config=config/dev.backend.hcl
 
-      - name: Deploy to dev
-        run: |
-          cd terraform
-          terraform apply -auto-approve -var-file=environments/dev.tfvars
+      # NOTE:
+      # Custom deployment scripts are not used directly as they reference .tfvars files, which are typically
+      # excluded from source control to protect sensitive information.
+      # Therefore, we have just mirrored the steps performed by our scripts.
 
-      - name: Generate .env file
+      # initialize a Terraform temp environment and deploy resources
+      - name: Create temp environment "dev-ci"
         run: |
           cd terraform
+          terraform workspace new dev-ci
+          terraform apply -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=dev-ci" -var "service_name=${{ env.SERVICE_NAME }}"
           terraform output > ../.env
 
-      - name: run integration test
+      # seed data for the Terraform temp environment
+      - name: Seed test data
+        run: npm run bootstrap-db
+      - name: Run integration test
         run: npm run test:integration
 
-      - name: run end-to-end tests
+      - name: Run end-to-end tests
         run: npm run test:e2e
+
+      # destroy the Terraform temp environment
+      - name: Destroy temp environment
+        run: |
+          cd terraform
+          terraform destroy -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=dev-ci" -var "service_name=${{ env.SERVICE_NAME }}"
+          terraform workspace select default
+          terraform workspace delete dev-ci
+
+      - name: Deploy to dev environment
+        run: |
+          cd terraform
+          terraform apply -auto-approve -var "aws_region=${{ env.AWS_REGION }}" -var "stage_name=${{ env.STAGE_NAME }}" -var "service_name=${{ env.SERVICE_NAME }}"
