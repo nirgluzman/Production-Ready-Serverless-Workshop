@@ -42,6 +42,15 @@ export const handler = middy(async (event, context) => {
   const req = JSON.parse(event.body); // Parse JSON request body
   const theme = req.theme; // Extract theme parameter from request
 
+  // Log the configuration loaded from SSM Parameter Store
+  console.info('Config from SSM:', context.config);
+
+  // Only try to access secretString if it exists
+  // This prevents errors when the parameter doesn't exist in SSM
+  if (context.secretString) {
+    console.info(`Secret string loaded successfully: ${context.secretString}`);
+  }
+
   const restaurants = await findRestaurantsByTheme(theme, context.config.defaultResults); // Search restaurants
   const response = {
     statusCode: 200, // HTTP OK status
@@ -57,11 +66,15 @@ export const handler = middy(async (event, context) => {
     // cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store,
     // then the concurrent executions would load the new value when their cache expires, without needing a deployment.
     cacheExpiry: 1 * 60 * 1000,
-    // set the SSM parameter value to the Lambda context, so we can access it in our handler
+    // set the SSM parameter value to the Lambda context (not as an environment variable), so we can access it in our handler - RECOMMENDED APPROACH!
     setToContext: true,
-    // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
+    // assign parameters to the context object of the function handler rather than to process.env (defaults to false)
     fetchData: {
+      // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
       config: `/${service_name}/${ssm_stage_name}/search-restaurants/config`,
+      secretString: `/${service_name}/${ssm_stage_name}/search-restaurants/secretString`,
     },
+    // Set to false to continue if parameter doesn't exist (defaults to false)
+    throwOnFailedCall: false,
   })
 );
