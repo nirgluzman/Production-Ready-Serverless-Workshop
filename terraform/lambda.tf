@@ -174,6 +174,14 @@ module "search_restaurants_lambda" {
         "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.service_name}/${local.ssm_stage_name}/search-restaurants/secretString"
       ]
     }
+    # Allow decryption of KMS-encrypted SSM parameters
+    kms_access = {
+      effect = "Allow"
+      actions = [
+        "kms:Decrypt"
+      ]
+      resources = [data.aws_ssm_parameter.kms_arn.value]
+    }
   }
 
   publish = true

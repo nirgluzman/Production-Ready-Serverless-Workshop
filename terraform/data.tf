@@ -11,3 +11,8 @@
 # - user_id: The unique identifier of the AWS principal
 # - arn: The Amazon Resource Name (ARN) of the principal
 data "aws_caller_identity" "current" {}
+
+# SSM Parameter Store entry containing the KMS key ARN.
+data "aws_ssm_parameter" "kms_arn" {
+  name = "/${var.service_name}/${local.ssm_stage_name}/kmsArn"
+}
