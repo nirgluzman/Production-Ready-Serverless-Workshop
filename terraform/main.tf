@@ -126,6 +126,32 @@ module "eventbridge" {
   # We opted to name the EventBridge bus with the service name and stage name as prefix; this is to support
   # ephemeral environments, so we can create a different event bus for each environment.
   bus_name = "${var.service_name}-${var.stage_name}-order-events"
+
+  # EventBridge rules define event patterns to match specific events
+  # These rules act as filters that determine which events trigger which targets
+  rules = {
+    # Rule to match order_placed events and trigger restaurant notification
+    notify_restaurant = {
+      # JSON pattern that filters events by source and detail-type
+      # Only events from 'big-mouth' application with 'order_placed' type will match
+      event_pattern = jsonencode({
+        source      = ["big-mouth"]     # Match events from our application
+        detail-type = ["order_placed"]  # Match only order placed events
+      })
+    }
+  }
+
+  # EventBridge targets define where matching events should be sent
+  # Each target is associated with a specific rule defined above
+  targets = {
+    # Targets for the notify_restaurant rule
+    notify_restaurant = [
+      {
+        name = "notify-restaurant"                                 # Target identifier
+        arn  = module.notify_restaurant_lambda.lambda_function_arn # Lambda function to invoke
+      }
+    ]
+  }
 }
 
 # Amazon SNS topic for notifying restaurants on orders
