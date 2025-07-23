@@ -89,3 +89,10 @@ output "orders_api" {
   description = "URL to the POST /orders endpoint"
   value       = "${aws_api_gateway_stage.main.invoke_url}/orders"
 }
+
+
+# Restaurant notifications SNS topic ARN - used for subscribing restaurant notification handlers
+output "restaurant_notification_topic" {
+  description = "ARN of the restaurant notifications SNS topic"
+  value       = "${module.sns_restaurant_notifications.topic_arn}"
+}
