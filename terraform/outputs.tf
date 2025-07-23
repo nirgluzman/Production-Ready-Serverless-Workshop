@@ -38,7 +38,7 @@ output "restaurants_table" {
   value       = "${module.dynamodb_restaurants_table.dynamodb_table_id}"  # DynamoDB table ID
 }
 
-# Restaurants API endpoint - full URL to the restaurants resource
+# Restaurants API endpoint - full URL to /restaurants resource
 output "restaurants_api" {
   description = "URL to the GET /restaurants endpoint"
   value       = "${aws_api_gateway_stage.main.invoke_url}/restaurants"
@@ -82,4 +82,10 @@ output "eventbridge_bus_name" {
 output "eventbridge_bus_arn" {
   description = "EventBridge bus ARN"
   value       = "${module.eventbridge.eventbridge_bus_arn}"
+}
+
+# Orders API endpoint - full URL to /orders resource
+output "orders_api" {
+  description = "URL to the POST /orders endpoint"
+  value       = "${aws_api_gateway_stage.main.invoke_url}/orders"
 }
