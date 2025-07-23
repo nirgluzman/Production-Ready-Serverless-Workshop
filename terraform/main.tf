@@ -105,3 +105,25 @@ resource "aws_cognito_user_pool_client" "server_client" {
     "ALLOW_REFRESH_TOKEN_AUTH"         # Allow token refresh for session management
   ]
 }
+
+
+# Amazon EventBridge event bus for order processing events
+# EventBridge enables event-driven architectures by routing events between AWS services and applications
+# https://registry.terraform.io/modules/terraform-aws-modules/eventbridge/aws/latest
+#
+# This event bus will be used for:
+# - Publishing order placed events when customers order food
+# - Enabling other services to subscribe to these events
+# - Implementing asynchronous processing of orders
+# - Decoupling the order processing from the main application flow
+module "eventbridge" {
+  source  = "terraform-aws-modules/eventbridge/aws"  # Community module for EventBridge
+  version = "~> 4.0"                                 # Pin to major version for stability
+
+  # EventBridge configuration
+
+  # Custom event bus for order-related events; Naming: [service name]-[environment]-order-events
+  # We opted to name the EventBridge bus with the service name and stage name as prefix; this is to support
+  # ephemeral environments, so we can create a different event bus for each environment.
+  bus_name = "${var.service_name}-${var.stage_name}-order-events"
+}
