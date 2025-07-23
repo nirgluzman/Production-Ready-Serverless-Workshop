@@ -196,3 +196,60 @@ module "search_restaurants_lambda" {
   # CloudWatch Logs retention to control costs and storage
   cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
 }
+
+# Lambda function for handling POST requests to the /orders endpoint
+# This function processes order placement and publishes events to EventBridge
+module "place_order_lambda" {
+  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
+  version = "~> 8.0"                            # Pin to major version for stability
+
+  # Function configuration
+  function_name = "${var.service_name}-${var.stage_name}-place-order"  # Naming convention: service-function
+  handler       = "index.handler"     # Entry point: file.function
+  runtime       = "nodejs22.x"        # Node.js runtime version
+  memory_size   = 1024                # Memory allocated to the function in MB
+  timeout       = 6                   # Lambda function timeout in seconds
+
+  # Source code configuration
+  source_path = [{
+    path = "${path.module}/../functions/place-order"  # Path to function source code
+    commands = [
+      "rm -rf node_modules",   # Remove existing node_modules directory
+      "npm ci --omit=dev",     # Install production dependencies only
+      ":zip"                   # Create deployment package
+    ]
+  }]
+
+  # Environment variables for the Lambda function
+  environment_variables = {
+    bus_name = module.eventbridge.eventbridge_bus_name  # EventBridge bus for publishing order events
+  }
+
+  # IAM permissions attached to the Lambda function's execution role
+  attach_policy_statements = true
+  policy_statements = {
+    # Allow publishing events to EventBridge
+    eventbridge_put = {
+      effect = "Allow"
+      actions = [
+        "events:PutEvents"  # Permission to publish events
+      ]
+      resources = [module.eventbridge.eventbridge_bus_arn]  # Specific EventBridge bus ARN
+    }
+  }
+
+  # Enable function versioning for better deployment management
+  publish = true
+
+  # API Gateway trigger permissions
+  # Allows API Gateway to invoke this Lambda function
+  allowed_triggers = {
+    APIGatewayPost = {
+      service    = "apigateway"                                                                    # AWS service that can invoke
+      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/POST/orders"  # Specific API Gateway endpoint
+    }
+  }
+
+  # CloudWatch Logs retention to control costs and storage
+  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+}
