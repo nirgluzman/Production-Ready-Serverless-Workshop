@@ -49,7 +49,7 @@ module "get_index_lambda" {
   # Enable function versioning for better deployment management
   publish = true
 
-  # API Gateway trigger permissions
+  # Lambda trigger permissions
   # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayGet = {
@@ -115,6 +115,8 @@ module "get_restaurants_lambda" {
 
   publish = true
 
+  # Lambda trigger permissions
+  # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayGet = {
       service    = "apigateway"
@@ -187,6 +189,8 @@ module "search_restaurants_lambda" {
 
   publish = true
 
+  # Lambda trigger permissions
+  # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayGet = {
       service    = "apigateway"
@@ -242,7 +246,7 @@ module "place_order_lambda" {
   # Enable function versioning for better deployment management
   publish = true
 
-  # API Gateway trigger permissions
+  # Lambda trigger permissions
   # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayPost = {
@@ -301,6 +305,15 @@ module "notify_restaurant_lambda" {
 
   # Enable function versioning for better deployment management
   publish = true
+
+  # Lambda trigger permissions
+  # Allows EventBridge to invoke this Lambda function
+  allowed_triggers = {
+    EventBridge = {
+      service    = "events"
+      source_arn = module.eventbridge.eventbridge_rule_arns["notify_restaurant"]
+    }
+  }
 
   # CloudWatch Logs retention to control costs and storage
   cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
