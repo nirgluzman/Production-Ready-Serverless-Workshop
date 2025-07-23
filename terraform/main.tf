@@ -127,3 +127,18 @@ module "eventbridge" {
   # ephemeral environments, so we can create a different event bus for each environment.
   bus_name = "${var.service_name}-${var.stage_name}-order-events"
 }
+
+# Amazon SNS topic for notifying restaurants on orders
+# SNS (Simple Notification Service) enables pub/sub messaging for microservices and event-driven applications
+# https://registry.terraform.io/modules/terraform-aws-modules/sns/aws/latest
+#
+# This SNS topic will be used for:
+# - Notifying restaurant when new order is placed
+# - Enabling restaurants to subscribe via email, SMS, or mobile push notifications
+module "sns_restaurant_notifications" {
+  source  = "terraform-aws-modules/sns/aws"  # Community module for SNS
+  version = "~> 6.0"                         # Pin to major version for stability
+
+  # SNS topic name; Naming: [service name]-[environment]-restaurant-notifications
+  name = "${var.service_name}-${var.stage_name}-restaurant-notifications"
+}
