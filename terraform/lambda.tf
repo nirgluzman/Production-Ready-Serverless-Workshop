@@ -254,3 +254,54 @@ module "place_order_lambda" {
   # CloudWatch Logs retention to control costs and storage
   cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
 }
+
+# Lambda function to handle orders (restaurant notifications via SNS & EventBridge status updates)
+module "notify_restaurant_lambda" {
+  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
+  version = "~> 8.0"                            # Pin to major version for stability
+
+  # Function configuration
+  function_name = "${var.service_name}-${var.stage_name}-notify-restaurant"  # Naming convention: service-function
+  handler       = "index.handler"     # Entry point: file.function
+  runtime       = "nodejs22.x"        # Node.js runtime version
+  memory_size   = 1024                # Memory allocated to the function in MB
+  timeout       = 6                   # Lambda function timeout in seconds
+
+  # Source code configuration
+  source_path = [{
+    path = "${path.module}/../functions/notify-restaurant"  # Path to function source code
+  }]
+
+  # Environment variables for the Lambda function
+  environment_variables = {
+    bus_name                      = module.eventbridge.eventbridge_bus_name        # EventBridge bus for publishing events
+    restaurant_notification_topic = module.sns_restaurant_notifications.topic_arn  # SNS topic for restaurant notifications
+  }
+
+  # IAM permissions attached to the Lambda function's execution role
+  attach_policy_statements = true
+  policy_statements = {
+    # Allow publishing events to EventBridge (for restaurant_notified events)
+    eventbridge_put = {
+      effect = "Allow"
+      actions = [
+        "events:PutEvents"  # Permission to publish events
+      ]
+      resources = [module.eventbridge.eventbridge_bus_arn]  # Specific EventBridge bus ARN
+    },
+    # Allow publishing messages to SNS (for restaurant notifications)
+    sns_publish = {
+      effect = "Allow"
+      actions = [
+        "sns:Publish"  # Permission to publish to SNS topics
+      ]
+      resources = [module.sns_restaurant_notifications.topic_arn]  # Specific SNS topic ARN
+    }
+  }
+
+  # Enable function versioning for better deployment management
+  publish = true
+
+  # CloudWatch Logs retention to control costs and storage
+  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+}
