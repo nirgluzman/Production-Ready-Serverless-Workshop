@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Update Steering Files",
+  "description": "On user trigger, update the .kiro/steering files",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "**/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Please analyze the .kiro/steering .md files and update them based on the project codebase."
+  }
+}
