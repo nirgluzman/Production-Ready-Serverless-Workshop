@@ -153,3 +153,29 @@ export const we_invoke_search_restaurants = async (theme, user) => {
       throw new Error(`unsupported mode: ${mode}`);
   }
 };
+
+/**
+ * Test helper to invoke the place-order Lambda function
+ * @param {Object} user - The authenticated Cognito user object (required for HTTP mode)
+ * @param {string} restaurantName - The name of the restaurant to place an order with
+ * @returns {Object} The Lambda function response
+ */
+export const we_invoke_place_order = async (user, restaurantName) => {
+  // Create request body with restaurant name
+  const body = JSON.stringify({ restaurantName });
+
+  // Choose invocation method based on TEST_MODE environment variable
+  // This allows the same test to run against local handlers or deployed API
+  switch (mode) {
+    case 'handler':
+      // Direct Lambda invocation for local testing
+      return await viaHandler({ body }, 'place-order');
+    case 'http':
+      // Extract authentication token from user object
+      const auth = user.idToken;
+      // Make authenticated HTTP request to the API Gateway endpoint
+      return await viaHttp('orders', 'POST', { body, auth });
+    default:
+      throw new Error(`unsupported mode: ${mode}`);
+  }
+};
