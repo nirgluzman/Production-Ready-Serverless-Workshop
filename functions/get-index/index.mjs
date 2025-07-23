@@ -9,10 +9,11 @@ import { AwsClient } from 'aws4fetch'; // signing utility - AWS client for makin
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SDK utility to get credentials from the default provider chain
 
 // Environment variables
-const restaurantsApiRoot = process.env.restaurants_api; // API Gateway endpoint for /restaurants resource
+const awsRegion = process.env.AWS_REGION;
 const cognitoUserPoolId = process.env.cognito_user_pool_id;
 const cognitoClientId = process.env.cognito_client_id;
-const awsRegion = process.env.AWS_REGION;
+const restaurantsApiRoot = process.env.restaurants_api; // API Gateway endpoint for /restaurants resource
+const ordersApiRoot = process.env.orders_api; // API Gateway endpoint for /orders resource
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -57,7 +58,8 @@ export const handler = async (event, context) => {
     cognitoClientId,
     dayOfWeek,
     restaurants,
-    searchUrl: `${restaurantsApiRoot}/search`,
+    searchUrl: `${restaurantsApiRoot}/search`, // URL for searching restaurants
+    placeOrderUrl: ordersApiRoot, // URL for placing orders
   };
 
   const html = Mustache.render(template, view);
