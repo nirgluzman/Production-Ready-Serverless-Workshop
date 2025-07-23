@@ -62,8 +62,9 @@ describe('Given an authenticated user', () => {
     });
 
     // Test case verifying event publication to EventBridge
-    // Test tags in the name ([int][e2e]) indicate this test can run in both integration and e2e test modes
-    it(`[int][e2e] Should publish a message to EventBridge bus`, async () => {
+    // Test tag in the name ([int]) indicates this test should run only in integration test mode
+    // Until we've a way to listen in on the events being published to the EventBridge bus, we use the e2e test to only make sure the "POST /orders" endpoint completes successfully
+    it(`[int] Should publish a message to EventBridge bus`, async () => {
       // Verify the mock was called exactly once
       expect(mockSend).toHaveBeenCalledTimes(1);
 
