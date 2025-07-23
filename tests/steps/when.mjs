@@ -29,7 +29,9 @@ const viaHandler = async (event, functionName) => {
   // Extract content type with default to application/json
   const contentType = _.get(response, 'headers.content-type', 'application/json');
   // Parse JSON response body if content type is application/json
-  if (response.body && contentType === 'application/json') {
+  // _.get(response, 'body') to confirm that we only convert the response body if it has a body (which in the case of the
+  // "notify-restaurant" function, it doesn't, because the function returns nothing).
+  if (_.get(response, 'body') && contentType === 'application/json') {
     response.body = JSON.parse(response.body);
   }
   return response;
@@ -177,5 +179,25 @@ export const we_invoke_place_order = async (user, restaurantName) => {
       return await viaHttp('orders', 'POST', { body, auth });
     default:
       throw new Error(`unsupported mode: ${mode}`);
+  }
+};
+
+/**
+ * Test helper to invoke the notify-restaurant Lambda function directly
+ * @param {Object} event - The EventBridge event object containing order details
+ * @returns {void} - This function doesn't return a value as the Lambda doesn't return a response
+ *
+ * Note: This function only supports 'handler' mode because the notify-restaurant Lambda
+ * is triggered by EventBridge events, not directly via API Gateway. There is no HTTP
+ * endpoint to invoke this function.
+ */
+export const we_invoke_notify_restaurant = async (event) => {
+  // Only handler mode is supported for this function
+  if (mode === 'handler') {
+    // Directly invoke the Lambda handler with the provided event
+    await viaHandler(event, 'notify-restaurant');
+  } else {
+    // HTTP mode is not supported for this function
+    throw new Error('HTTP invocation not supported for notify-restaurant function');
   }
 };
