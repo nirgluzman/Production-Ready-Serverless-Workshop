@@ -25,10 +25,11 @@ module "get_index_lambda" {
 
   # Environment variables for the Lambda function
   environment_variables = {
-    restaurants_api      = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
     cognito_user_pool_id = aws_cognito_user_pool.main.id                 # Cognito User Pool ID
     cognito_client_id    = aws_cognito_user_pool_client.web_client.id    # Cognito App Client ID
-  }
+    restaurants_api      = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
+    orders_api           = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/orders"
+   }
 
   # IAM permissions attached to the Lambda function's execution role
   attach_policy_statements = true
