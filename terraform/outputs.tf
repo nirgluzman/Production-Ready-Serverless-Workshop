@@ -96,3 +96,10 @@ output "restaurant_notification_topic" {
   description = "ARN of the restaurant notifications SNS topic"
   value       = "${module.sns_restaurant_notifications.topic_arn}"
 }
+
+# Test E2E SQS queue URL - used for end-to-end (E2E) testing
+output "e2e_test_queue_url" {
+  description = "URL of the E2E test queue"
+  value       = local.is_e2e_test ? aws_sqs_queue.e2e_test[0].url : null
+  # Terraform outputs don't support 'count', so we conditionally set the value to 'null' if the resource isn't created
+}
