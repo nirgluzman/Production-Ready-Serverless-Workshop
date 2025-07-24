@@ -168,3 +168,73 @@ module "sns_restaurant_notifications" {
   # SNS topic name; Naming: [service name]-[environment]-restaurant-notifications
   name = "${var.service_name}-${var.stage_name}-restaurant-notifications"
 }
+
+
+# Amazon SQS queue for end-to-end (E2E) testing
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue
+#
+# This queue is used for:
+# - Capturing events during end-to-end tests
+# - Providing a temporary message store for test validation
+# - Only created for development/test environments (when stage_name starts with "dev")
+resource "aws_sqs_queue" "e2e_test" {
+  # Conditionally create this queue only for e2e test environments
+  count = local.is_e2e_test ? 1 : 0
+
+  # Queue configuration
+  name = "${var.service_name}-${var.stage_name}-e2e-test-queue"  # Naming: service-environment-purpose
+
+  # Message retention - very short time for testing purposes
+  # Messages are automatically deleted after 60 seconds to keep the queue clean
+  message_retention_seconds = 60
+
+  # Visibility timeout - time a message is hidden from other consumers after being received
+  # Set to a very short 1 second to optimize for concurrent test execution:
+  # - Messages picked up by one test are temporarily hidden from others
+  # - Short timeout ensures messages become available again quickly
+  # - If a test instance crashes or fails to process a message quickly, that message becomes available almost immediately
+  #   for another test instance to pick up, preventing test blockages.
+  # - Ensures that all messages put into the queue for testing purposes are quickly processed or re-processed,
+  #   maximizing the chances of each test seeing relevant messages within the test window.
+  visibility_timeout_seconds = 1
+}
+
+# SNS topic subscription for the E2E test SQS queue
+# Subscribes the e2e test SQS queue to the restaurant notifications SNS topic
+# This allows e2e tests to capture and verify SNS messages sent during order processing
+resource "aws_sns_topic_subscription" "e2e_test" {
+  count = local.is_e2e_test ? 1 : 0  # Only create for e2e test environments
+
+  topic_arn = module.sns_restaurant_notifications.topic_arn  # ARN of the SNS topic to subscribe to
+  protocol  = "sqs"                                          # Use SQS as the delivery protocol
+  endpoint  = aws_sqs_queue.e2e_test[0].arn                  # Target SQS queue for messages
+  raw_message_delivery = false                               # Essential for E2E tests to verify message origin via SNS envelope metadata
+}
+
+# Queue policy for SNS
+# Grants the SNS topic permission to publish messages to the E2E test SQS queue
+# Even with a subscription, explicit queue permissions are required for message delivery
+resource "aws_sqs_queue_policy" "e2e_test" {
+  count = local.is_e2e_test ? 1 : 0
+
+  queue_url = aws_sqs_queue.e2e_test[0].url
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowSNSPublish"
+        Effect    = "Allow"
+        Principal = {
+          Service = "sns.amazonaws.com"
+        }
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.e2e_test[0].arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = module.sns_restaurant_notifications.topic_arn
+          }
+        }
+      }
+    ]
+  })
+}
