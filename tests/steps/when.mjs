@@ -8,6 +8,8 @@ import _ from 'lodash';
 import { AwsClient } from 'aws4fetch';
 // AWS SDK utility to get credentials from the default provider chain
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+// AWS SDK v3 imports for EventBridge operations (used for publishing events in tests)
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 
 // Determine invocation mode: 'handler' for local, 'http' for deployed API
 const mode = process.env.TEST_MODE;
@@ -99,6 +101,34 @@ const viaHttp = async (relPath, method, opts) => {
 };
 
 /**
+ * Publishes an event to EventBridge for testing event-driven workflows
+ * @param {string} busName - The EventBridge bus name to publish to
+ * @param {string} source - The event source identifier (e.g., 'big-mouth')
+ * @param {string} detailType - The event type for filtering (e.g., 'order_placed')
+ * @param {Object} detail - The event payload object
+ * @returns {Promise<void>}
+ */
+const viaEventBridge = async (busName, source, detailType, detail) => {
+  // Initialize EventBridge client
+  const eventBridge = new EventBridgeClient();
+
+  // Create PutEvents command with event details
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [
+      {
+        Source: source, // Application identifier for event filtering
+        DetailType: detailType, // Event type for rule matching
+        Detail: JSON.stringify(detail), // Event payload as JSON string
+        EventBusName: busName, // Target EventBridge bus
+      },
+    ],
+  });
+
+  // Publish the event to EventBridge
+  await eventBridge.send(putEventsCmd);
+};
+
+/**
  * Test helper to invoke the get-index Lambda function
  * @returns {Object} The Lambda function response
  */
@@ -183,21 +213,26 @@ export const we_invoke_place_order = async (user, restaurantName) => {
 };
 
 /**
- * Test helper to invoke the notify-restaurant Lambda function directly
+ * Test helper to invoke the notify-restaurant Lambda function directly without using EventBridge
  * @param {Object} event - The EventBridge event object containing order details
- * @returns {void} - This function doesn't return a value as the Lambda doesn't return a response
- *
- * Note: This function only supports 'handler' mode because the notify-restaurant Lambda
- * is triggered by EventBridge events, not directly via API Gateway. There is no HTTP
- * endpoint to invoke this function.
+ * @returns {void} - This function doesn't return a value as the notify-restaurant Lambda doesn't return a response
  */
 export const we_invoke_notify_restaurant = async (event) => {
-  // Only handler mode is supported for this function
-  if (mode === 'handler') {
-    // Directly invoke the Lambda handler with the provided event
-    await viaHandler(event, 'notify-restaurant');
-  } else {
-    // HTTP mode is not supported for this function
-    throw new Error('HTTP invocation not supported for notify-restaurant function');
+  // Choose invocation method based on TEST_MODE environment variable
+  // This allows the same test to run against local handlers or deployed API
+  switch (mode) {
+    case 'handler':
+      // Direct Lambda invocation for local testing
+      await viaHandler(event, 'notify-restaurant');
+      break;
+    case 'http':
+      // Get EventBridge bus name from environment variables
+      const busName = process.env.eventbridge_bus_name;
+      // Publish the event to EventBridge to trigger the notify-restaurant Lambda
+      // This simulates the real EventBridge trigger mechanism in HTTP test mode
+      await viaEventBridge(busName, event.source, event['detail-type'], event.detail);
+      break;
+    default:
+      throw new Error(`unsupported mode: ${mode}`);
   }
 };
