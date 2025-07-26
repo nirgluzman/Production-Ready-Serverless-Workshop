@@ -8,9 +8,9 @@
  * 3. Verify: Check mock function calls to ensure correct AWS service interactions.
  *
  * End-to-End Test Mode (TEST_MODE=http):
- * Test → EventBridge → notify-restaurant Lambda → SNS → SQS → Test Listener
+ * Test → EventBridge → notify-restaurant Lambda → SNS/EventBridge → SQS → Test Listener
  * 1. Setup: Start SQS message listener.
- * 2. Invoke: Publish event to real EventBridge → triggers real Lambda → publishes to real SNS.
+ * 2. Invoke: Publish event to real EventBridge → triggers real Lambda → publishes to real SNS+EventBridge.
  * 3. Verify: Wait for actual message to arrive in SQS queue.
  */
 
@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 // Import test helpers for invoking Lambda functions
 import * as when from '../steps/when';
-// Import SQS message listener for e2e testing (monitors SNS messages in test queue)
+// Import SQS message listener for e2e testing (monitors SNS+EventBridge messages in test queue)
 import { startListening } from '../messages.mjs';
 // Import Chance library for generating random test data
 import { Chance } from 'chance';
@@ -56,7 +56,7 @@ describe(`When we invoke the notify-restaurant function`, () => {
     },
   };
 
-  // SQS message listener for e2e mode
+  // SQS message listener in e2e mode
   let listener;
 
   // Set up test environment before all tests
@@ -70,7 +70,7 @@ describe(`When we invoke the notify-restaurant function`, () => {
       mockEvbSend.mockReturnValue({});
       mockSnsSend.mockReturnValue({});
     } else {
-      // E2E tests: Start listening for real messages in the SQS queue
+      // E2E tests: start listening for real messages in the SQS queue
       listener = startListening();
     }
 
@@ -132,9 +132,9 @@ describe(`When we invoke the notify-restaurant function`, () => {
   });
 
   // -------------------------------
-  // E2E test: Verify actual SNS message delivery to SQS queue
-  // Due to the end-to-end message flow – from test to EventBridge, then to the notify-restaurant function (sending to SNS), forwarded to SQS,
-  // and finally long-polled by the test – we've increased the Vitest timeout to 10s (from 5s) to accommodate the inherent latency.
+  // E2E test: Verify actual SNS+EventBridge message delivery to SQS queue
+  // Due to the end-to-end message flow – from test to EventBridge, then to the notify-restaurant function (sending to SNS+EventBridge), forwarded to SQS,
+  // and finally long-polled by the test – we've increased the Vitest timeout to 10s to accommodate the inherent latency.
   // -------------------------------
   //
   // Verify SNS message publication
@@ -151,4 +151,22 @@ describe(`When we invoke the notify-restaurant function`, () => {
         x.message === expectedMsg // Contains expected content
     );
   }, 10000); // 10 second timeout for message delivery
+
+  // Verify EventBridge event publication
+  // Test → EventBridge → notify-restaurant Lambda → EventBridge → SQS → Test Listener
+  it(`[e2e] Should publish "restaurant_notified" event to EventBridge`, async () => {
+    // Expected message content
+    const expectedMsg = JSON.stringify({
+      ...event,
+      'detail-type': 'restaurant_notified',
+    });
+
+    // Wait for a message that matches our criteria
+    await listener.waitForMessage(
+      (x) =>
+        x.sourceType === 'eventbridge' && // Message came from EventBridge
+        x.source === process.env.eventbridge_bus_name && // From correct event bus name
+        x.message === expectedMsg // Contains expected content
+    );
+  }, 10000);
 });
