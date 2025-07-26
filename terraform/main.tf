@@ -169,7 +169,6 @@ module "sns_restaurant_notifications" {
   name = "${var.service_name}-${var.stage_name}-restaurant-notifications"
 }
 
-
 # Amazon SQS queue for end-to-end (E2E) testing
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue
 #
@@ -203,7 +202,8 @@ resource "aws_sqs_queue" "e2e_test" {
 # Subscribes the e2e test SQS queue to the restaurant notifications SNS topic
 # This allows e2e tests to capture and verify SNS messages sent during order processing
 resource "aws_sns_topic_subscription" "e2e_test" {
-  count = local.is_e2e_test ? 1 : 0  # Only create for e2e test environments
+  # Conditionally create this queue only for e2e test environments
+  count = local.is_e2e_test ? 1 : 0
 
   topic_arn = module.sns_restaurant_notifications.topic_arn  # ARN of the SNS topic to subscribe to
   protocol  = "sqs"                                          # Use SQS as the delivery protocol
@@ -211,10 +211,11 @@ resource "aws_sns_topic_subscription" "e2e_test" {
   raw_message_delivery = false                               # Essential for E2E tests to verify message origin via SNS envelope metadata
 }
 
-# Queue policy for SNS
-# Grants the SNS topic permission to publish messages to the E2E test SQS queue
+# Queue policy for SNS amd EventBridge
+# Grants the SNS topic and EventBridge permission to publish messages to the E2E test SQS queue
 # Even with a subscription, explicit queue permissions are required for message delivery
 resource "aws_sqs_queue_policy" "e2e_test" {
+  # Conditionally create this queue only for e2e test environments
   count = local.is_e2e_test ? 1 : 0
 
   queue_url = aws_sqs_queue.e2e_test[0].url
@@ -234,7 +235,83 @@ resource "aws_sqs_queue_policy" "e2e_test" {
             "aws:SourceArn" = module.sns_restaurant_notifications.topic_arn
           }
         }
+      },
+      {
+        Sid       = "AllowEventBridgePublish"
+        Effect    = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
+        }
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.e2e_test[0].arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = aws_cloudwatch_event_rule.e2e_test[0].arn
+          }
+        }
       }
     ]
   })
+}
+
+# EventBridge rule for E2E testing - captures all events from the application
+# This rule matches ALL events from the 'big-mouth' application
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule
+resource "aws_cloudwatch_event_rule" "e2e_test" {
+  # Conditionally create this queue only for e2e test environments
+  count = local.is_e2e_test ? 1 : 0
+
+  # Name or ARN of the event bus to associate with this rule
+  event_bus_name = module.eventbridge.eventbridge_bus_name
+
+  # Ensure the EventBridge module is created first
+  depends_on = [module.eventbridge]
+
+  # Rule configuration
+  name = "${var.service_name}-${var.stage_name}-e2e-test"  # Naming: service-environment-purpose
+
+  # Event pattern - match ALL events from our application
+  # Unlike the notify_restaurant rule which only matches 'order_placed',
+  event_pattern = jsonencode({
+    source = ["big-mouth"]  # Match all events from our application
+  })
+}
+
+# EventBridge target for E2E testing - defines where matched events should be sent
+# This target routes all events matching the e2e_test rule to the test SQS queue
+# Includes event transformation to add metadata for easier test verification
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target
+resource "aws_cloudwatch_event_target" "e2e_test" {
+  # Conditionally create this queue only for e2e test environments
+  count = local.is_e2e_test ? 1 : 0
+
+  # Target configuration
+  rule           = aws_cloudwatch_event_rule.e2e_test[0].name  # Link to the e2e test rule
+  event_bus_name = module.eventbridge.eventbridge_bus_name     # Event bus containing the rule
+  target_id      = "E2ETestQueue"                              # Unique identifier for this target
+  arn            = aws_sqs_queue.e2e_test[0].arn               # Destination SQS queue ARN
+
+  # Event transformation - restructure the event payload to include eventBusName
+  # This transforms the original EventBridge event into a more convenient format for test verification by extracting key fields and adding metadata
+  input_transformer {
+    # Extract specific fields from the original event
+    input_paths = {
+      source: "$.source",           # Event source (e.g., 'big-mouth')
+      detailType: "$.detail-type",  # Event type (e.g., 'order_placed')
+      detail: "$.detail"            # Event payload
+    }
+
+    # Template for the transformed message sent to SQS
+    # Wraps the extracted fields in a structured format with additional metadata
+    input_template = <<EOF
+{
+  "event": {
+    "source": <source>,
+    "detail-type": <detailType>,
+    "detail": <detail>
+  },
+  "eventBusName": "${var.service_name}-${var.stage_name}-order-events"
+}
+EOF
+  }
 }
