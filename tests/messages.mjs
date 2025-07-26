@@ -57,8 +57,9 @@ export const startListening = () => {
           // Track this message ID to prevent duplicate processing
           messageIds.add(msg.MessageId);
 
-          // Parse the SQS message body (which contains the SNS message)
+          // Parse the SQS message body
           const body = JSON.parse(msg.Body);
+
           // Check if this is an SNS message (has TopicArn)
           if (body.TopicArn) {
             // Emit the processed message to the ReplaySubject
@@ -66,6 +67,22 @@ export const startListening = () => {
               sourceType: 'sns', // Indicates this came from SNS
               source: body.TopicArn, // The SNS topic ARN
               message: body.Message, // The actual message content
+            });
+          }
+          // Check if this is an EventBridge message (has eventBusName)
+          else if (body.eventBusName) {
+            // Emit the processed message to the ReplaySubject
+            messages.next({
+              sourceType: 'eventbridge',
+              source: body.eventBusName,
+              message: JSON.stringify(body.event),
+            });
+          } else {
+            // Emit the raw message to the ReplaySubject
+            messages.next({
+              sourceType: 'unknown',
+              source: 'unknown',
+              message: msg.Body,
             });
           }
         });
