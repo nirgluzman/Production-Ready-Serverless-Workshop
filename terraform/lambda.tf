@@ -320,6 +320,17 @@ module "notify_restaurant_lambda" {
       ]
       resources = [module.dynamodb_idempotency_table.dynamodb_table_arn]
     }
+
+    # Allow sending failed events to queue
+    dlq_send = {
+      effect = "Allow"
+      actions = [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SendMessage"
+      ]
+      resources = [aws_sqs_queue.notify_restaurant_dlq.arn]
+    }
   }
 
   # Enable function versioning for better deployment management
@@ -336,4 +347,22 @@ module "notify_restaurant_lambda" {
 
   # CloudWatch Logs retention to control costs and storage
   cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+}
+
+
+# DLQ (Dead Letter Queue) for OnFailure destination of notify_restaurant Lambda invocations
+resource "aws_sqs_queue" "notify_restaurant_dlq" {
+  name = "${var.service_name}-${var.stage_name}-notify-restaurant-dlq"
+}
+
+# Configure OnFailure destination for notify_restaurant Lambda
+resource "aws_lambda_function_event_invoke_config" "notify_restaurant" {
+  function_name = module.notify_restaurant_lambda.lambda_function_name
+
+  destination_config {
+    # Destination configuration for failed asynchronous invocations
+    on_failure {
+      destination = aws_sqs_queue.notify_restaurant_dlq.arn
+    }
+  }
 }
