@@ -1,27 +1,21 @@
 // Import testing utilities from Vitest framework
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 // Import test helpers for invoking Lambda functions
 import * as when from '../steps/when.mjs';
 // Import test setup helpers for creating authenticated users
 import * as given from '../steps/given.mjs';
 // Import test teardown helpers for cleaning up resources
 import * as teardown from '../steps/teardown.mjs';
-// Import AWS SDK EventBridge client for mocking
-import { EventBridgeClient } from '@aws-sdk/client-eventbridge';
-
-// Create a mock function for the EventBridge send method
-// MOCKING NOTE: Validating EventBridge events directly requires real-time subscription infrastructure, which we'll cover later
-const mockSend = vi.fn();
-// Replace the real EventBridge send method with our mock
-// This allows us to verify that events are published without actually sending them
-EventBridgeClient.prototype.send = mockSend;
+// Import SQS message listener for e2e testing (monitors EventBridge messages in test queue)
+import { startListening } from '../messages.mjs';
 
 /**
  * Test suite for the place-order Lambda function
  *
- * This test verifies that the function correctly:
+ * This test verifies the following:
  * 1. Returns a successful HTTP 200 response
  * 2. Publishes an order_placed event to EventBridge with the correct data
+ *    Test → place-order Lambda → EventBridge → test SQS → Test Listener
  */
 
 // Outer describe block for setting up authenticated user context
@@ -29,14 +23,23 @@ describe('Given an authenticated user', () => {
   // Store the authenticated user for use in tests and cleanup
   let user;
 
-  // Before all tests: create an authenticated Cognito user
+  // SQS message listener in e2e mode
+  let listener;
+
+  // Set up test environment before all tests
   beforeAll(async () => {
+    // Create an authenticated Cognito user
     user = await given.an_authenticated_user();
+    // Start listening for real messages in the SQS queue
+    listener = startListening();
   });
 
-  // After all tests: clean up by deleting the Cognito user
+  // After all tests
   afterAll(async () => {
+    // Clean up by deleting the Cognito user
     await teardown.an_authenticated_user(user);
+    // Stop the SQS message listener
+    listener.stop();
   });
 
   // Test suite for the order placement endpoint
@@ -44,14 +47,9 @@ describe('Given an authenticated user', () => {
     // Store the response for assertions in multiple test cases
     let resp;
 
-    // Before all tests: reset mock and invoke the place-order function
+    // Before all tests
     beforeAll(async () => {
-      // Clear previous mock calls
-      mockSend.mockClear();
-      // Configure mock to return empty success response
-      mockSend.mockReturnValue({});
-
-      // Call the place-order endpoint with restaurant name 'Fangtasia'
+      // Invoke place-order endpoint with restaurant name 'Fangtasia'
       resp = await when.we_invoke_place_order(user, 'Fangtasia');
     });
 
@@ -62,26 +60,27 @@ describe('Given an authenticated user', () => {
     });
 
     // Test case verifying event publication to EventBridge
-    // Test tag in the name ([int]) indicates this test should run only in integration test mode
-    // Until we've a way to listen in on the events being published to the EventBridge bus, we use the e2e test to only make sure the "POST /orders" endpoint completes successfully
-    it(`[int] Should publish a message to EventBridge bus`, async () => {
-      // Verify the mock was called exactly once
-      expect(mockSend).toHaveBeenCalledTimes(1);
+    // Test tag in the name ([e2e]) indicate this test can run only in e2e test mode
+    it(`[e2e] Should publish a message to EventBridge bus`, async () => {
+      const { orderId } = resp.body;
 
-      // Extract the PutEvents command from the mock call
-      const [putEventsCmd] = mockSend.mock.calls[0];
-
-      // Verify the event has the correct structure and content
-      expect(putEventsCmd.input).toEqual({
-        Entries: [
-          expect.objectContaining({
-            Source: 'big-mouth', // Event source identifier
-            DetailType: 'order_placed', // Event type
-            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`), // Event payload contains restaurant name
-            EventBusName: process.env.bus_name, // Correct event bus
-          }),
-        ],
+      // Expected message content
+      const expectedMsg = JSON.stringify({
+        source: 'big-mouth',
+        'detail-type': 'order_placed',
+        detail: {
+          orderId,
+          restaurantName: 'Fangtasia',
+        },
       });
-    });
+
+      // Wait for a message that matches our criteria
+      await listener.waitForMessage(
+        (x) =>
+          x.sourceType === 'eventbridge' && // Message came from EventBridge
+          x.source === process.env.eventbridge_bus_name && // From correct event bus name
+          x.message === expectedMsg // Contains expected content
+      );
+    }, 10000);
   });
 });
