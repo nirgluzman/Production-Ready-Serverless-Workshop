@@ -337,3 +337,18 @@ module "dynamodb_idempotency_table" {
     }
   ]
 }
+
+# SNS topic for alarms
+module "sns_alarm_topic" {
+  source  = "terraform-aws-modules/sns/aws"
+  version = "~> 6.0"
+
+  name = "${var.service_name}-${var.stage_name}-alarms"
+}
+
+# Email subscription for the alarm topic
+resource "aws_sns_topic_subscription" "alarm_email" {
+  topic_arn = module.sns_alarm_topic.topic_arn
+  protocol  = "email"
+  endpoint  = "<EMAIL ADDRESS>"  # Email to receive the alerts
+}
