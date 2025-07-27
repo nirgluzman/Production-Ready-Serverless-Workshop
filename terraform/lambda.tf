@@ -345,24 +345,74 @@ module "notify_restaurant_lambda" {
     }
   }
 
+  # OnFailure destination
+  create_async_event_config = true                                  # Controls whether async event configuration for Lambda Function/Alias should be created
+  destination_on_failure = aws_sqs_queue.notify_restaurant_dlq.arn  # ARN of the destination resource for failed asynchronous invocations
+
   # CloudWatch Logs retention to control costs and storage
   cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
 }
-
 
 # DLQ (Dead Letter Queue) for OnFailure destination of notify_restaurant Lambda invocations
 resource "aws_sqs_queue" "notify_restaurant_dlq" {
   name = "${var.service_name}-${var.stage_name}-notify-restaurant-dlq"
 }
 
-# Configure OnFailure destination for notify_restaurant Lambda
-resource "aws_lambda_function_event_invoke_config" "notify_restaurant" {
-  function_name = module.notify_restaurant_lambda.lambda_function_name
+# NOTE: OnFailure destination is now configured using destination_on_failure setting in the Lambda module above
+# instead of using a separate aws_lambda_function_event_invoke_config resource
+#
+# # Configure OnFailure destination for notify_restaurant Lambda
+# resource "aws_lambda_function_event_invoke_config" "notify_restaurant" {
+#   function_name = module.notify_restaurant_lambda.lambda_function_name
 
-  destination_config {
-    # Destination configuration for failed asynchronous invocations
-    on_failure {
-      destination = aws_sqs_queue.notify_restaurant_dlq.arn
-    }
+#   destination_config {
+#     # Destination configuration for failed asynchronous invocations
+#     on_failure {
+#       destination = aws_sqs_queue.notify_restaurant_dlq.arn
+#     }
+#   }
+# }
+
+# Alarm for failed events in the DLQ
+# Default SNS Topic Policy: the default policy allows any AWS service within our account to publish to the topic
+resource "aws_cloudwatch_metric_alarm" "on_failure_queue" {
+  alarm_name          = "[${var.stage_name}][notify-restaurant function] Failed events detected in OnFailure destination"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 300  # 5 minutes
+  statistic           = "Average"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+
+  # Services to publish metrics to CloudWatch
+  dimensions = {
+    QueueName = aws_sqs_queue.notify_restaurant_dlq.name
   }
+
+  # List of actions to execute when this alarm transitions into an ALARM state from any other state.
+  alarm_actions = [module.sns_alarm_topic.topic_arn]
+}
+
+# Alarm for DLQ delivery failures (DestinationDeliveryFailures) - triggers when Lambda cannot send failed events to the OnFailure destination
+# Default SNS Topic Policy: the default policy allows any AWS service within our account to publish to the topic
+resource "aws_cloudwatch_metric_alarm" "destination_delivery_failures" {
+  alarm_name          = "[${var.stage_name}][notify-restaurant function] Failed to deliver failed events to OnFailure destination"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "DestinationDeliveryFailures"
+  namespace           = "AWS/Lambda"
+  period              = 300  # 5 minutes
+  statistic           = "Sum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+
+  # Services to publish metrics to CloudWatch
+  dimensions = {
+    FunctionName = module.notify_restaurant_lambda.lambda_function_name
+  }
+
+  # List of actions to execute when this alarm transitions into an ALARM state from any other state.
+  alarm_actions = [module.sns_alarm_topic.topic_arn]
 }
