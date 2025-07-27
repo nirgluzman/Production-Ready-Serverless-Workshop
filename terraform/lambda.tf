@@ -274,12 +274,18 @@ module "notify_restaurant_lambda" {
   # Source code configuration
   source_path = [{
     path = "${path.module}/../functions/notify-restaurant"  # Path to function source code
+    commands = [
+      "rm -rf node_modules",
+      "npm ci --omit=dev",
+      ":zip"
+    ]
   }]
 
   # Environment variables for the Lambda function
   environment_variables = {
-    bus_name                      = module.eventbridge.eventbridge_bus_name        # EventBridge bus for publishing events
-    restaurant_notification_topic = module.sns_restaurant_notifications.topic_arn  # SNS topic for restaurant notifications
+    bus_name                      = module.eventbridge.eventbridge_bus_name              # EventBridge bus for publishing events
+    restaurant_notification_topic = module.sns_restaurant_notifications.topic_arn        # SNS topic for restaurant notifications
+    idempotency_table             = module.dynamodb_idempotency_table.dynamodb_table_id  # DynamoDB table for idempotency checks
   }
 
   # IAM permissions attached to the Lambda function's execution role
@@ -293,6 +299,7 @@ module "notify_restaurant_lambda" {
       ]
       resources = [module.eventbridge.eventbridge_bus_arn]  # Specific EventBridge bus ARN
     },
+
     # Allow publishing messages to SNS (for restaurant notifications)
     sns_publish = {
       effect = "Allow"
@@ -300,6 +307,18 @@ module "notify_restaurant_lambda" {
         "sns:Publish"  # Permission to publish to SNS topics
       ]
       resources = [module.sns_restaurant_notifications.topic_arn]  # Specific SNS topic ARN
+    }
+
+    # Allow idempotency table operations
+    dynamodb_access = {
+      effect = "Allow"
+      actions = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem"
+      ]
+      resources = [module.dynamodb_idempotency_table.dynamodb_table_arn]
     }
   }
 
