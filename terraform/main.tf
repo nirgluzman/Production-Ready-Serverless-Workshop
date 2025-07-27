@@ -6,13 +6,13 @@
 # https://registry.terraform.io/modules/terraform-aws-modules/dynamodb-table/aws/latest
 module "dynamodb_restaurants_table" {
   source  = "terraform-aws-modules/dynamodb-table/aws" # module from serverless.tf
-  version = "~> 4.0"
+  version = "~> 5.0"
 
   # Table configuration
   name        = "${var.service_name}-restaurants-${var.stage_name}"  # Naming: service-purpose-environment
   hash_key    = "name"                                               # Primary key: restaurant name
 
-  # Define table attributes (only keys need to be defined upfront)
+  # Table attributes (only keys need to be defined upfront)
   attributes  = [
     {
       name = "name"  # Restaurant name attribute
@@ -314,4 +314,26 @@ resource "aws_cloudwatch_event_target" "e2e_test" {
 }
 EOF
   }
+}
+
+# DynamoDB table to keep track of the idempotency tokens
+
+# Lambda Powertools ensures idempotency by hashing the invocation event.
+# It marks an event IN_PROGRESS during processing, then COMPLETED with the result. If the same event arrives again before expiration,
+# Powertools returns the stored result, avoiding re-execution.
+module "dynamodb_idempotency_table" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"
+  version = "~> 5.0"
+
+  # Table configuration
+  name        = "${var.service_name}-idempotency-${var.stage_name}"  # Naming: service-purpose-environment
+  hash_key    = "id"                                                 # Primary key: id
+
+  # Table attributes (only keys need to be defined upfront)
+  attributes  = [
+    {
+      name = "id"  # Hash of the invocation event as an idempotency key
+      type = "S"   # String type
+    }
+  ]
 }
