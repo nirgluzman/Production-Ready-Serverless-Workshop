@@ -1,0 +1,16 @@
+{
+  "name": "notify-restaurant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm ci --omit=dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-lambda-powertools/idempotency": "^2.24.0"
+  }
+}

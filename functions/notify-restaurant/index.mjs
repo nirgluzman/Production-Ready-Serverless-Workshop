@@ -10,6 +10,13 @@
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
+// AWS Lambda Powertools imports for idempotency handling
+// Idempotency ensures the same operation can be called multiple times safely without side effects
+import { makeIdempotent } from '@aws-lambda-powertools/idempotency';
+
+// DynamoDB persistence layer for storing idempotency keys and preventing duplicate processing
+import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
+
 // Initialize clients (created outside handler for connection reuse)
 const eventBridge = new EventBridgeClient();
 const sns = new SNSClient();
@@ -18,12 +25,23 @@ const sns = new SNSClient();
 const busName = process.env.bus_name; // EventBridge bus name
 const topicArn = process.env.restaurant_notification_topic; // SNS topic ARN
 
+// Configure DynamoDB persistence store for idempotency tracking
+// This table stores hashes of processed events to prevent duplicate executions when the same EventBridge event is delivered multiple times
+const persistenceStore = new DynamoDBPersistenceLayer({
+  tableName: process.env.idempotency_table, // DynamoDB table name from environment variables
+});
+
 /**
- * Lambda handler function for notifying restaurants of new orders
+ * Core handler function for notifying restaurants of new orders
+ *
+ * This function is wrapped with AWS Lambda Powertools idempotency to prevent duplicate processing.
+ * The idempotency tool provides a DynamoDB persistence layer that tracks processed events, ensuring restaurant notifications
+ * are sent only once even if the same EventBridge event is delivered multiple times.
+ *
  * @param {Object} event - EventBridge event containing order details
- * @returns {void}
+ * @returns {string} orderId - Returns order ID for idempotency key generation
  */
-export const handler = async (event) => {
+export const _handler = async (event) => {
   // Extract order details from the EventBridge event
   const order = event.detail;
 
@@ -57,4 +75,13 @@ export const handler = async (event) => {
   // Send event to EventBridge
   await eventBridge.send(putEventsCmd);
   console.log(`published 'restaurant_notified' event to EventBridge`);
+
+  // Return orderId for idempotency key generation
+  // The idempotency tool uses this return value to create a unique key for tracking processed events
+  return orderId;
 };
+
+// Export the idempotent-wrapped handler as the main Lambda handler
+// makeIdempotent wraps _handler with idempotency logic using the DynamoDB persistence store
+// This ensures the function executes only once per unique event, preventing duplicate notifications
+export const handler = makeIdempotent(_handler, { persistenceStore });
