@@ -103,3 +103,10 @@ output "e2e_test_queue_url" {
   value       = local.is_e2e_test ? aws_sqs_queue.e2e_test[0].url : null
   # Terraform outputs don't support 'count', so we conditionally set the value to 'null' if the resource isn't created
 }
+
+# DynamoDB idempotency table name
+# Tests can access this table name to check idempotency token storage and retrieval
+output "idempotency_table" {
+  description = "The name of the idempotency table"
+  value       = "${module.dynamodb_idempotency_table.dynamodb_table_id}"
+}
