@@ -157,7 +157,7 @@ module "search_restaurants_lambda" {
 
   attach_policy_statements = true
   policy_statements = {
-    # Allow read access to the DynamoDB table
+    # Allow read access to DynamoDB restaurants table
     dynamodb_read = {
       effect = "Allow"
       actions = [
@@ -337,7 +337,7 @@ module "notify_restaurant_lambda" {
   publish = true
 
   # Lambda trigger permissions
-  # Allows EventBridge to invoke this Lambda function
+  # Allows EventBridge to invoke this Lambda function (rule)
   allowed_triggers = {
     EventBridge = {
       service    = "events"
@@ -415,4 +415,76 @@ resource "aws_cloudwatch_metric_alarm" "destination_delivery_failures" {
 
   # List of actions to execute when this alarm transitions into an ALARM state from any other state.
   alarm_actions = [module.sns_alarm_topic.topic_arn]
+}
+
+
+# Lambda function for saving order data in DynamoDB table from EventBridge events.
+# This function writes the order information from the "order_placed" events into the "orders" DynamoDB table.
+# Function is triggered by EventBridge rule "seed_orders" which filter for "order_placed" events.
+module "seed_orders_lambda" {
+  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
+  version = "~> 8.0"                            # Pin to major version for stability
+
+  # Function configuration
+  function_name = "${var.service_name}-${var.stage_name}-seed-orders"
+  handler       = "index.handler"
+  runtime       = "nodejs22.x"
+  memory_size   = 1024
+  timeout       = 6
+
+  # Source code configuration
+  source_path = [{
+    path = "${path.module}/../functions/seed-orders"
+    commands = [
+      "rm -rf node_modules",
+      "npm ci --omit=dev",
+      ":zip"
+    ]
+  }]
+
+  # Environment variables for the Lambda function
+  environment_variables = {
+    orders_table      = module.dynamodb_orders_tables.dynamodb_table_id
+    idempotency_table = module.dynamodb_idempotency_table.dynamodb_table_id
+  }
+
+  # IAM permissions attached to the Lambda function's execution role
+  attach_policy_statements = true
+  policy_statements = {
+    # Allow write access to DynamoDB orders table
+    dynamodb_orders_write = {
+      effect = "Allow"
+      actions = [
+        "dynamodb:PutItem"
+      ]
+      resources = [module.dynamodb_orders_tables.dynamodb_table_arn]
+    }
+
+    # Allow idempotency table operations
+    dynamodb_idempotency = {
+      effect = "Allow"
+      actions = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem"
+      ]
+      resources = [module.dynamodb_idempotency_table.dynamodb_table_arn]
+    }
+  }
+
+  # Enable function versioning for better deployment management
+  publish = true
+
+  # Lambda trigger permissions
+  # Allows EventBridge to invoke this Lambda function (rule)
+  allowed_triggers = {
+    EventBridge = {
+      service    = "events"
+      source_arn = module.eventbridge.eventbridge_rule_arns["seed_orders"]
+    }
+  }
+
+  # CloudWatch Logs retention
+  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
 }
