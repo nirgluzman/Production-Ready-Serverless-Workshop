@@ -5,11 +5,11 @@
 # DynamoDB table for storing restaurant data
 # https://registry.terraform.io/modules/terraform-aws-modules/dynamodb-table/aws/latest
 module "dynamodb_restaurants_table" {
-  source  = "terraform-aws-modules/dynamodb-table/aws" # module from serverless.tf
+  source  = "terraform-aws-modules/dynamodb-table/aws"  # module from serverless.tf
   version = "~> 5.0"
 
   # Table configuration
-  name        = "${var.service_name}-restaurants-${var.stage_name}"  # Naming: service-purpose-environment
+  name        = "${var.service_name}-${var.stage_name}-restaurants"  # Naming: service-environment-purpose
   hash_key    = "name"                                               # Primary key: restaurant name
 
   # Table attributes (only keys need to be defined upfront)
@@ -17,6 +17,24 @@ module "dynamodb_restaurants_table" {
     {
       name = "name"  # Restaurant name attribute
       type = "S"     # String type
+    }
+  ]
+}
+
+# DynamoDB table for storing orders
+module "dynamodb_orders_tables" {
+  source  = "terraform-aws-modules/dynamodb-table/aws"  # module from serverless.tf
+  version = "~> 5.0"
+
+  # Table configuration
+  name        = "${var.service_name}-${var.stage_name}-orders"  # Naming: service-environment-purpose
+  hash_key    = "id"
+
+  # Table attributes
+  attributes  = [
+    {
+      name = "id"
+      type = "S"
     }
   ]
 }
@@ -143,13 +161,24 @@ module "eventbridge" {
   # EventBridge rules define event patterns to match specific events
   # These rules act as filters that determine which events trigger which targets
   rules = {
-    # Rule to match order_placed events and trigger restaurant notification
+    # Rule to match order_placed events and trigger notify_restaurant_lambda
     notify_restaurant = {
       # JSON pattern that filters events by source and detail-type
       # Only events from 'big-mouth' application with 'order_placed' type will match
       event_pattern = jsonencode({
         source      = ["big-mouth"]     # Match events from our application
         detail-type = ["order_placed"]  # Match only order placed events
+      })
+    }
+
+    # Rule to match order_placed events and trigger seed_orders_lambda
+    # NOTE: This rule has the same event pattern as the notify_restaurant rule. We need to have this setup, so when we replay events,
+    # we can target each rule independently (and to invoke each rule's targets without impacting the other rule).
+    seed_orders = {
+      # JSON pattern that filters events by source and detail-type
+      event_pattern = jsonencode({
+        source      = ["big-mouth"]
+        detail-type = ["order_placed"]
       })
     }
   }
@@ -160,8 +189,16 @@ module "eventbridge" {
     # Targets for the notify_restaurant rule
     notify_restaurant = [
       {
-        name = "notify-restaurant"                                 # Target identifier
+        name = "notify-restaurant-lambda"                          # Target identifier
         arn  = module.notify_restaurant_lambda.lambda_function_arn # Lambda function to invoke
+      }
+    ]
+
+    # Targets for the seed_orders rule
+    seed_orders = [
+      {
+        name = "seed-orders-lambda"                               # Target identifier
+        arn  = module.seed_orders_lambda.lambda_function_arn      # Lambda function to invoke
       }
     ]
   }
