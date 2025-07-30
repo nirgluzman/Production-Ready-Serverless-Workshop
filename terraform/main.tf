@@ -127,6 +127,19 @@ module "eventbridge" {
   # ephemeral environments, so we can create a different event bus for each environment.
   bus_name = "${var.service_name}-${var.stage_name}-order-events"
 
+  # Enable event archiving for compliance and debugging
+  create_archives = true
+
+  archives = {
+    "order-events-archive" = {
+      description = "Archive for ALL events from the order-events bus"
+      retention_days = 0  # Indefinite retention
+      event_pattern  = jsonencode({
+        "account": ["${data.aws_caller_identity.current.account_id}"],  # Archive events from this account
+      })
+    }
+  }
+
   # EventBridge rules define event patterns to match specific events
   # These rules act as filters that determine which events trigger which targets
   rules = {
