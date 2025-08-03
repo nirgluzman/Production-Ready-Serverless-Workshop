@@ -124,12 +124,6 @@ resource "aws_cognito_user_pool_client" "server_client" {
   ]
 }
 
-
-# Random ID for ensuring unique archive names
-resource "random_id" "archive_suffix" {
-  byte_length = 4
-}
-
 # Amazon EventBridge event bus for order processing events
 # EventBridge enables event-driven architectures by routing events between AWS services and applications
 # https://registry.terraform.io/modules/terraform-aws-modules/eventbridge/aws/latest
@@ -231,6 +225,15 @@ module "sns_restaurant_notifications" {
 
   # SNS topic name; Naming: [service name]-[environment]-restaurant-notifications
   name = "${var.service_name}-${var.stage_name}-restaurant-notifications"
+}
+
+# Amazon SNS topic for user notifications
+# This topic is used to send notifications to users, such as order updates or promotional messages
+module "sns_user_notifications" {
+  source  = "terraform-aws-modules/sns/aws"
+  version = "~> 6.0"
+
+  name = "${var.service_name}-${var.stage_name}-user-notifications"
 }
 
 # Amazon SQS queue for end-to-end (E2E) testing
@@ -413,6 +416,6 @@ module "sns_alarm_topic" {
 # Email subscription for the alarm topic
 resource "aws_sns_topic_subscription" "alarm_email" {
   topic_arn = module.sns_alarm_topic.topic_arn
-  protocol  = "email"
+  protocol  = "email-json"       # Use email protocol to receive JSON messages
   endpoint  = "<EMAIL ADDRESS>"  # Email to receive the alerts
 }
