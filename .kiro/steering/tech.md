@@ -6,30 +6,47 @@
 - **Terraform**: Infrastructure as Code (IaC)
 
 ## AWS Services
-- **Lambda**: Serverless compute functions
-- **API Gateway**: REST API with regional endpoints
-- **DynamoDB**: NoSQL database for restaurant data
-- **Cognito**: User authentication and authorization
-- **CloudWatch**: Logging and monitoring
+- **Lambda**: Serverless compute functions with async event configuration
+- **API Gateway**: REST API with regional endpoints and CORS
+- **DynamoDB**: NoSQL database for restaurant, order, and idempotency data
+- **Cognito**: User authentication with SRP protocol and JWT tokens
+- **EventBridge**: Custom event bus for order processing events
+- **SNS**: Topics for restaurant and user notifications
+- **SQS**: Dead letter queues and E2E test queues
+- **Step Functions**: State machine for complex order workflows
+- **CloudWatch**: Logging, monitoring, and alarms
 - **S3**: Terraform state storage
-- **SSM**: Parameter Store for configuration
+- **SSM**: Parameter Store for configuration with KMS encryption
+- **KMS**: Key management for encrypted parameters
 
 ## Key Dependencies
-- `@aws-sdk/client-dynamodb` & `@aws-sdk/lib-dynamodb`: AWS SDK v3
+- `@aws-sdk/client-dynamodb` & `@aws-sdk/lib-dynamodb`: AWS SDK v3 for DynamoDB
 - `@aws-sdk/client-cognito-identity-provider`: Cognito operations
+- `@aws-sdk/client-eventbridge`: EventBridge event publishing
+- `@aws-sdk/client-sns`: SNS notifications
+- `@aws-sdk/client-sqs`: SQS queue operations for testing
 - `@aws-sdk/client-ssm`: Parameter Store access
+- `@aws-sdk/credential-providers`: AWS credential management
 - `@middy/core` & `@middy/ssm`: Lambda middleware framework
-- `aws4fetch`: AWS request signing
-- `mustache`: Template rendering
-- `vitest`: Testing framework
-- `cheerio`: HTML parsing for tests
-- `chance`: Random data generation
+- `aws4fetch`: AWS request signing for API calls
+- `mustache`: Template rendering for HTML responses
+- `vitest`: Modern testing framework with ES modules
+- `cheerio`: HTML parsing for frontend tests
+- `chance`: Random data generation for tests
+- `lodash`: Utility functions for data manipulation
+- `rxjs`: Reactive programming for async operations
+- `cross-env`: Cross-platform environment variables
 
 ## Build System
 Each Lambda function has its own `package.json` with a `build` script:
 ```bash
 npm run build  # Installs production dependencies only (npm ci --omit=dev)
 ```
+
+Terraform handles Lambda packaging automatically with build commands:
+- `rm -rf node_modules` - Clean existing dependencies
+- `npm run build` or `npm ci --omit=dev` - Install production dependencies
+- `:zip` - Terraform special command to create deployment package
 
 ## Testing Framework
 - **Vitest**: Modern testing framework with ES modules support

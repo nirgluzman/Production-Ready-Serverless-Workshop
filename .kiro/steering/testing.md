@@ -31,12 +31,22 @@
 - **Naming**: `{function-name}.test.mjs`
 - **Organization**: One test file per Lambda function
 - **Coverage**: Both integration and e2e tests in same file
+- **Special Tests**: `notify-restaurant.idempotency.test.mjs` for idempotency testing
+- **Message Testing**: `messages.mjs` for EventBridge and SNS message verification
 
 ## Testing Dependencies
 - **`cheerio`**: HTML parsing and DOM manipulation for frontend tests
 - **`chance`**: Random data generation for test scenarios
 - **`lodash`**: Utility functions for data manipulation
-- **`@aws-sdk/*`**: AWS service clients for setup/teardown
+- **`rxjs`**: Reactive programming for async test operations
+- **`@aws-sdk/client-*`**: AWS service clients for setup/teardown
+  - `client-cognito-identity-provider`: User management in tests
+  - `client-dynamodb` & `lib-dynamodb`: Database operations
+  - `client-eventbridge`: Event publishing verification
+  - `client-sns`: SNS message verification
+  - `client-sqs`: Queue message polling for E2E tests
+  - `client-ssm`: Parameter Store access
+- **`aws4fetch`**: AWS request signing for authenticated API calls
 
 ## Best Practices
 - Use descriptive test names with `[int]` or `[e2e]` tags
@@ -45,6 +55,15 @@
 - Use environment variables for configuration (loaded via Vitest config)
 - Test both success and error scenarios
 - Mock external dependencies when appropriate
+- Test idempotency for event-driven functions
+- Verify EventBridge events and SNS messages in E2E tests
+- Use temporary environments for isolated testing
+
+## Event-Driven Testing
+- **EventBridge Verification**: Tests capture and verify events published to custom bus
+- **SNS Message Testing**: E2E tests verify restaurant notifications via SQS subscriptions
+- **Idempotency Testing**: Specialized tests ensure duplicate events are handled correctly
+- **Message Polling**: Tests use SQS polling to verify async event processing
 
 ## Environment Setup
-Tests automatically load environment variables from `.env` file via Vitest configuration, ensuring consistent test environment setup.
+Tests automatically load environment variables from `.env` file via Vitest configuration, ensuring consistent test environment setup. E2E tests require deployed infrastructure with temporary SQS queues for message verification.

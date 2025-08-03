@@ -12,7 +12,9 @@
 ├── package.json            # Root package.json with test scripts
 ├── seed-restaurants.mjs    # Database seeding script
 ├── vitest.config.mjs       # Test configuration
-└── TERRAFORM_GUIDE.md      # Infrastructure deployment guide
+└── docs/                   # Project documentation
+    ├── terraform-guide.md     # Infrastructure deployment guide
+    └── step-functions-workflow.md  # Step Functions workflow documentation
 ```
 
 ## Lambda Functions (`functions/`)
@@ -21,13 +23,16 @@ Each function follows a consistent structure:
 
 ```
 functions/
-├── get-index/             # Landing page handler
+├── get-index/             # Landing page handler with Cognito auth
 ├── get-restaurants/       # Restaurant listing API
-└── search-restaurants/    # Restaurant search API
+├── search-restaurants/    # Restaurant search API with SSM config
+├── place-order/           # Order placement with EventBridge publishing
+├── notify-restaurant/     # Restaurant notifications via SNS + EventBridge
+└── seed-orders/           # Order data persistence from EventBridge events
 
 # Each function contains:
 ├── index.js               # Main handler (CommonJS)
-├── package.json           # Function dependencies
+├── package.json           # Function dependencies with build script
 ├── node_modules/          # Dependencies (generated)
 └── static/                # Static assets (if needed)
 ```
@@ -51,20 +56,22 @@ tests/
 
 ```
 terraform/
-├── main.tf               # Core resources (DynamoDB, Cognito)
-├── lambda.tf             # Lambda function definitions
+├── main.tf               # Core resources (DynamoDB, Cognito, EventBridge, SNS)
+├── lambda.tf             # Lambda function definitions with IAM policies
 ├── api.tf                # API Gateway configuration
+├── step-functions.tf     # Step Functions state machine for order workflow
 ├── data.tf               # Data sources
-├── locals.tf             # Local values
+├── locals.tf             # Local values and computed expressions
 ├── ssm.tf                # SSM Parameter Store resources
 ├── variables.tf          # Input variables
-├── outputs.tf            # Output values
+├── outputs.tf            # Output values for testing and integration
 ├── providers.tf          # AWS provider configuration
 ├── backend.tf            # Remote state configuration
 ├── versions.tf           # Terraform version constraints
 ├── environments/         # Environment-specific variables (.tfvars)
 ├── config/               # Backend configuration files (.backend.hcl)
 ├── builds/               # Lambda deployment packages (generated)
+├── state_machines/       # Step Functions ASL definitions
 └── script-*.sh           # Workspace management scripts
 ```
 
@@ -115,8 +122,13 @@ The GitHub Actions workflow provides automated deployment with the following sta
 ## Key Patterns
 
 - Each Lambda function is self-contained with its own dependencies
-- Terraform modules are used for complex resources (DynamoDB, Lambda)
+- Terraform modules are used for complex resources (DynamoDB, Lambda, EventBridge, SNS)
 - Environment-specific configuration via `.tfvars` files
 - Remote state management with S3 backend and DynamoDB locking
 - Workspace-based ephemeral environments for feature development
+- Event-driven architecture with EventBridge custom bus
+- Idempotency handling with DynamoDB table and Lambda Powertools
+- Dead letter queues for failed Lambda invocations
+- CloudWatch alarms for monitoring and alerting
 - Automated CI/CD pipeline with temporary environment testing
+- Step Functions for complex workflow orchestration
