@@ -125,6 +125,11 @@ resource "aws_cognito_user_pool_client" "server_client" {
 }
 
 
+# Random ID for ensuring unique archive names
+resource "random_id" "archive_suffix" {
+  byte_length = 4
+}
+
 # Amazon EventBridge event bus for order processing events
 # EventBridge enables event-driven architectures by routing events between AWS services and applications
 # https://registry.terraform.io/modules/terraform-aws-modules/eventbridge/aws/latest
@@ -145,11 +150,13 @@ module "eventbridge" {
   # ephemeral environments, so we can create a different event bus for each environment.
   bus_name = "${var.service_name}-${var.stage_name}-order-events"
 
-  # Enable event archiving for compliance and debugging
+  # Enable event archiving (for storing all events for later retrieval and analysis)
   create_archives = true
 
+  # EventBridge archive configuration
   archives = {
-    "order-events-archive" = {
+    # Archive name must be unique to our account in the selected Region
+    "${var.service_name}-${var.stage_name}-order-events-archive" = {
       description = "Archive for ALL events from the order-events bus"
       retention_days = 0  # Indefinite retention
       event_pattern  = jsonencode({
@@ -157,6 +164,13 @@ module "eventbridge" {
       })
     }
   }
+
+  # Append '-rule' to all rule names (default)
+  append_rule_postfix = true
+
+  # NOTE: Rule name
+  # https://stackoverflow.com/questions/72215332/change-eventbridge-cron-rule-name-in-terraform
+  # https://github.com/terraform-aws-modules/terraform-aws-eventbridge/issues/20
 
   # EventBridge rules define event patterns to match specific events
   # These rules act as filters that determine which events trigger which targets
