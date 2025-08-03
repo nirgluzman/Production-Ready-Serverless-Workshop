@@ -1,0 +1,252 @@
+{
+  "Comment": "Order processing workflow with restaurant notification and status tracking",
+  "QueryLanguage": "JSONata",
+  "StartAt": "Save order to DynamoDB",
+  "States": {
+    "Save order to DynamoDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Arguments": {
+        "TableName": "${ORDERS_TABLE_NAME}",
+        "Item": {
+          "id": "{% $states.input.order_id %}",
+          "status": "PLACED"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Publish ORDER_PLACED event to EventBridge"
+    },
+    "Publish ORDER_PLACED event to EventBridge": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": {
+              "order_id": "{% $states.input.order_id %}"
+            },
+            "DetailType": "order_placed",
+            "EventBusName": "${EVENT_BUS_NAME}",
+            "Source": "big-mouth"
+          }
+        ]
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Notify restaurant"
+    },
+    "Notify restaurant": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish.waitForTaskToken",
+      "Arguments": {
+        "TopicArn": "${RESTAURANT_TOPIC_ARN}",
+        "Message": {
+          "order_id": "{% $states.input.order_id %}",
+          "task_token": "{% $states.context.Task.Token %}"
+        }
+      },
+      "TimeoutSeconds": 600,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.Timeout"],
+          "Output": {
+            "order_id": "{% $states.input.order_id %}",
+            "notifyRestaurantResult": "{% $states.errorOutput %}"
+          },
+          "Next": "Update order to TIMED_OUT"
+        }
+      ],
+      "Output": {
+        "order_id": "{% $states.input.order_id %}",
+        "notifyRestaurantResult": "{% $states.result %}"
+      },
+      "Next": "Choice"
+    },
+    "Update order to TIMED_OUT": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "${ORDERS_TABLE_NAME}",
+        "Key": {
+          "id": "{% $states.input.order_id %}"
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": "TIMED_OUT"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Publish ORDER_TIMED_OUT event to EventBridge"
+    },
+    "Publish ORDER_TIMED_OUT event to EventBridge": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": {
+              "order_id": "{% $states.input.order_id %}"
+            },
+            "DetailType": "order_timed_out",
+            "EventBusName": "${EVENT_BUS_NAME}",
+            "Source": "big-mouth"
+          }
+        ]
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Notify user of order TIMED_OUT"
+    },
+    "Notify user of order TIMED_OUT": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "TopicArn": "${USER_TOPIC_ARN}",
+        "Message": {
+          "order_id": "{% $states.input.order_id %}",
+          "notification_message": "Order expired"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Order timed out"
+    },
+    "Order timed out": {
+      "Type": "Fail",
+      "Cause": "Order timed out waiting for restaurant response",
+      "Error": "OrderTimeout"
+    },
+    "Choice": {
+      "Type": "Choice",
+      "Default": "Update order to REJECTED",
+      "Choices": [
+        {
+          "Condition": "{% $states.input.notifyRestaurantResult.isAccepted = true %}",
+          "Next": "Update order to ACCEPTED"
+        }
+      ]
+    },
+    "Update order to ACCEPTED": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "${ORDERS_TABLE_NAME}",
+        "Key": {
+          "id": "{% $states.input.order_id %}"
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": "ACCEPTED"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Publish ORDER_ACCEPTED event to EventBridge"
+    },
+    "Publish ORDER_ACCEPTED event to EventBridge": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": {
+              "order_id": "{% $states.input.order_id %}"
+            },
+            "DetailType": "order_accepted",
+            "EventBusName": "${EVENT_BUS_NAME}",
+            "Source": "big-mouth"
+          }
+        ]
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Notify user of order ACCEPTED"
+    },
+    "Notify user of order ACCEPTED": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "TopicArn": "arn:aws:sns:us-east-1:539323004237:prsls-tf-workshop-dev-sfn-user-notifications",
+        "Message": {
+          "order_id": "{% $states.input.order_id %}",
+          "notification_message": "Order confirmed"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "End": true
+    },
+    "Update order to REJECTED": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "${ORDERS_TABLE_NAME}",
+        "Key": {
+          "id": "{% $states.input.order_id %}"
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": "REJECTED"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Publish ORDER_REJECTED event to EventBridge"
+    },
+    "Publish ORDER_REJECTED event to EventBridge": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": {
+              "order_id": "{% $states.input.order_id %}"
+            },
+            "DetailType": "order_rejected",
+            "EventBusName": "${EVENT_BUS_NAME}",
+            "Source": "big-mouth"
+          }
+        ]
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "Next": "Notify user of order REJECTED"
+    },
+    "Notify user of order REJECTED": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "TopicArn": "${USER_TOPIC_ARN}",
+        "Message": {
+          "order_id": "{% $states.input.order_id %}",
+          "notification_message": "Order declined"
+        }
+      },
+      "Output": {
+        "order_id": "{% $states.input.order_id %}"
+      },
+      "End": true
+    }
+  }
+}
