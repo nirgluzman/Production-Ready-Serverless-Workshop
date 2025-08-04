@@ -11,8 +11,16 @@
 
 // AWS SDK v3 import for EventBridge operations
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+
 // Chance library for generating random values (used for order IDs)
 import { Chance } from 'chance';
+
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
 
 // Initialize EventBridge client (created outside handler for connection reuse)
 const eventBridge = new EventBridgeClient();
@@ -34,7 +42,9 @@ export const handler = async (event) => {
 
   // Generate a unique order ID using chance library
   const orderId = chance.guid();
-  console.log(`placing order ID [${orderId}] to [${restaurantName}]`);
+
+  // console.log(`placing order ID [${orderId}] to [${restaurantName}]`);
+  logger.debug('placing order...', { orderId, restaurantName });
 
   // Create an EventBridge event for the order
   const putEvent = new PutEventsCommand({
@@ -54,7 +64,12 @@ export const handler = async (event) => {
 
   // Publish the event to EventBridge
   await eventBridge.send(putEvent);
-  console.log(`published 'order_placed' event into EventBridge`);
+
+  // console.log(`published 'order_placed' event into EventBridge`);
+  logger.debug(`published event into EventBridge`, {
+    eventType: 'order_placed',
+    busName,
+  });
 
   // Return success response with the generated order ID
   const response = {

@@ -8,6 +8,13 @@ import Mustache from 'mustache'; // templating engine to inject dynamic data int
 import { AwsClient } from 'aws4fetch'; // signing utility - AWS client for making authenticated requests to AWS services
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SDK utility to get credentials from the default provider chain
 
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
+
 // Environment variables
 const awsRegion = process.env.AWS_REGION;
 const cognitoUserPoolId = process.env.cognito_user_pool_id;
@@ -36,7 +43,16 @@ const template = fs.readFileSync(path.join(__dirname, 'static/index.html'), 'utf
 
 // Fetch restaurant data from your API Gateway endpoint.
 const getRestaurants = async () => {
-  const resp = await aws.fetch(restaurantsApiRoot); // Make an authenticated HTTP request using AWS credentials to load the list of restaurants from the GET /restaurants endpoint.
+  // Log API request details for debugging
+  // NOTE: restaurantsApiRoot is captured as a separate url attribute in the log message.
+  // Capturing variables as attributes (instead of baking them into the message) makes them easier to search and filter.
+  logger.debug('getting restaurants...', { url: restaurantsApiRoot });
+
+  // Make an authenticated HTTP request using AWS credentials to load the list of restaurants from the GET /restaurants endpoint.
+  const resp = await aws.fetch(restaurantsApiRoot);
+
+  // Log HTTP response status for debugging
+  logger.debug('response status code', { statusCode: resp.status });
 
   // Throw error if request failed (4xx, 5xx status codes).
   if (!resp.ok) {
@@ -48,7 +64,9 @@ const getRestaurants = async () => {
 
 export const handler = async (event, context) => {
   const restaurants = await getRestaurants();
-  console.log(`found ${restaurants.length} restaurants`);
+
+  // console.log(`found ${restaurants.length} restaurants`);
+  logger.debug('got restaurants', { count: restaurants.length });
 
   const dayOfWeek = days[new Date().getDay()];
 

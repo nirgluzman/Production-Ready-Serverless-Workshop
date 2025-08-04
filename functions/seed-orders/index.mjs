@@ -8,8 +8,12 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 
-// AWS Lambda Powertools imports for idempotency handling to ensure we don't process the same event twice
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+// Idempotency handling - idempotency ensures the same operation can be called multiple times safely without side effects.
 import { makeIdempotent, IdempotencyConfig } from '@aws-lambda-powertools/idempotency';
+// DynamoDB persistence layer for storing idempotency keys and preventing duplicate processing
 import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
 
 // Initialize DynamoDB client (created outside handler for connection reuse)
@@ -21,12 +25,16 @@ const persistenceStore = new DynamoDBPersistenceLayer({
   tableName: process.env.idempotency_table,
 });
 
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
+
 // AWS Lambda handler function
 const _handler = async (event) => {
   // Extract order details from EventBridge event
   const order = event.detail;
 
-  console.log('Saving order id:', order.orderId);
+  // console.log('Saving order id:', order.orderId);
+  logger.info('Saving order id', order.orderId);
 
   // Write order information to orders table
   await dynamodb.send(

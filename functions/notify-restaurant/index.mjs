@@ -10,10 +10,11 @@
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
-// AWS Lambda Powertools imports for idempotency handling
-// Idempotency ensures the same operation can be called multiple times safely without side effects
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+// Idempotency handling - idempotency ensures the same operation can be called multiple times safely without side effects.
 import { makeIdempotent } from '@aws-lambda-powertools/idempotency';
-
 // DynamoDB persistence layer for storing idempotency keys and preventing duplicate processing
 import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
 
@@ -30,6 +31,9 @@ const topicArn = process.env.restaurant_notification_topic; // SNS topic ARN
 const persistenceStore = new DynamoDBPersistenceLayer({
   tableName: process.env.idempotency_table, // DynamoDB table name from environment variables
 });
+
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
 
 /**
  * Core handler function for notifying restaurants of new orders
@@ -57,7 +61,9 @@ export const _handler = async (event) => {
 
   // Extract key information for logging
   const { restaurantName, orderId } = order;
-  console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`);
+
+  // console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`);
+  logger.debug('notified restaurant of order', { restaurantName, orderId });
 
   // Step 2: Publish restaurant_notified event to EventBridge
   // This allows other services to react to the notification being sent
@@ -74,7 +80,12 @@ export const _handler = async (event) => {
 
   // Send event to EventBridge
   await eventBridge.send(putEventsCmd);
-  console.log(`published 'restaurant_notified' event to EventBridge`);
+
+  // console.log(`published 'restaurant_notified' event to EventBridge`);
+  logger.debug(`published event to EventBridge`, {
+    eventType: 'restaurant_notified',
+    busName,
+  });
 
   // Return orderId for idempotency key generation
   // The idempotency tool uses this return value to create a unique key for tracking processed events

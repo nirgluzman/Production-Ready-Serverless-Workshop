@@ -2,6 +2,10 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
 // https://github.com/middyjs/middy
@@ -11,6 +15,9 @@ import middy from '@middy/core';
 // @middy/ssm: Middleware that automatically loads parameters from AWS SSM Parameter Store during cold starts
 // and caches them for subsequent invocations, improving performance
 import ssm from '@middy/ssm';
+
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
 
 // Initialize DynamoDB clients (created outside handler for connection reuse)
 const dynamodbClient = new DynamoDB({});
@@ -22,7 +29,11 @@ const tableName = process.env.restaurants_table; // DynamoDB table name from env
 
 // Search restaurants by theme using DynamoDB scan with filter
 const findRestaurantsByTheme = async (theme, count) => {
-  console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`);
+  // console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`);
+  logger.debug('finding restaurants...', {
+    count,
+    theme,
+  });
 
   // Scan operation with filter expression to find restaurants by theme
   const resp = await dynamodb.send(
@@ -33,7 +44,12 @@ const findRestaurantsByTheme = async (theme, count) => {
       ExpressionAttributeValues: { ':theme': theme }, // Parameter substitution for filter
     })
   );
-  console.log(`found ${resp.Items.length} restaurants`);
+
+  //console.log(`found ${resp.Items.length} restaurants`);
+  logger.debug('found restaurants', {
+    count: resp.Items.length,
+  });
+
   return resp.Items; // Return array of matching restaurant objects
 };
 
@@ -43,7 +59,10 @@ export const handler = middy(async (event, context) => {
   const theme = req.theme; // Extract theme parameter from request
 
   // Log the configuration loaded from SSM Parameter Store
-  console.info('Config from SSM:', context.config);
+  // console.info('Config from SSM:', context.config);
+  logger.debug('Config from SSM', {
+    config: context.config,
+  });
 
   // Only try to access secretString if it exists
   // This prevents errors when the parameter doesn't exist in SSM

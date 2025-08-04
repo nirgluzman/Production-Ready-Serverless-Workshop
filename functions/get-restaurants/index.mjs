@@ -2,6 +2,10 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+// AWS Lambda Powertools utilities
+// Logger with output structured as JSON
+import { Logger } from '@aws-lambda-powertools/logger';
+
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
 // https://github.com/middyjs/middy
@@ -11,6 +15,9 @@ import middy from '@middy/core';
 // @middy/ssm: Middleware that automatically loads parameters from AWS SSM Parameter Store during cold starts
 // and caches them for subsequent invocations, improving performance
 import ssm from '@middy/ssm';
+
+// Initialize structured logger with service name from environment
+const logger = new Logger({ serviceName: process.env.service_name });
 
 // Initialize DynamoDB clients (created outside handler for connection reuse)
 const dynamodbClient = new DynamoDB({}); // Low-level DynamoDB client
@@ -22,7 +29,11 @@ const tableName = process.env.restaurants_table; // DynamoDB table name
 
 // Fetch restaurants from DynamoDB table
 const getRestaurants = async (count) => {
-  console.log(`fetching ${count} restaurants from ${tableName}...`);
+  // console.log(`fetching ${count} restaurants from ${tableName}...`);
+  logger.debug('getting restaurants from DynamoDB...', {
+    count,
+    tableName,
+  });
 
   // Scan operation to retrieve restaurants
   // NOTE: Scan reads the entire table and returns the first X number of items it finds.
@@ -33,7 +44,12 @@ const getRestaurants = async (count) => {
       Limit: count, // Maximum number of items to return
     })
   );
-  console.log(`found ${resp.Items.length} restaurants`);
+
+  // console.log(`found ${resp.Items.length} restaurants`);
+  logger.debug('found restaurants', {
+    count: resp.Items.length,
+  });
+
   return resp.Items; // Return array of restaurant objects
 };
 
