@@ -14,4 +14,15 @@ locals {
   # Returns true if the stage name starts with "dev" (e.g., dev, dev-ci, dev-feature-branch).
   # Used to conditionally enable/disable resources or configurations for testing environments.
   is_e2e_test = startswith(var.stage_name, "dev")
+
+  # Conditionally configure the log level - Powertools for AWS Lambda Logger.
+  log_level = var.stage_name == "prod" ? "INFO" : "DEBUG"
+
+  # Common Lambda environment variables (captures all the environment variables we've so far).
+  common_lambda_env_vars = {
+    service_name         = var.service_name
+    stage_name           = var.stage_name
+    ssm_stage_name       = local.ssm_stage_name
+    POWERTOOLS_LOG_LEVEL = local.log_level
+  }
 }
