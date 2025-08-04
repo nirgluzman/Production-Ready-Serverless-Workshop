@@ -3,33 +3,39 @@
 # https://registry.terraform.io/modules/terraform-aws-modules/lambda/aws/latest
 #
 module "get_index_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
-  version = "~> 8.0"                            # Pin to major version for stability
+  source  = "terraform-aws-modules/lambda/aws" # Community module for Lambda functions
+  version = "~> 8.0"                           # Pin to major version for stability
 
   # Function configuration
-  function_name = "${var.service_name}-${var.stage_name}-get-index"  # Naming convention: service-function
-  handler       = "index.handler"     # Entry point: file.function
-  runtime       = "nodejs22.x"        # Node.js runtime version
-  memory_size   = 1024                # Memory allocated to the function in MB
-  timeout       = 6                   # Lambda function timeout in seconds
+  function_name = "${var.service_name}-${var.stage_name}-get-index" # Naming convention: service-function
+  handler       = "index.handler"                                   # Entry point: file.function
+  runtime       = "nodejs22.x"                                      # Node.js runtime version
+  memory_size   = 1024                                              # Memory allocated to the function in MB
+  timeout       = 6                                                 # Lambda function timeout in seconds
 
   # Source code configuration
   source_path = [{
-    path = "${path.module}/../functions/get-index",  # Path to function source code
-    commands = [ # build commands that Terraform executes when packaging the Lambda function
-      "rm -rf node_modules", # Remove the existing node_modules directory
-      "npm run build",       # Install dependencies, exclude development dependencies
-      ":zip"                 # Special Terraform command to create a zip package of the source code. This ZIP file becomes the Lambda deployment package
+    path = "${path.module}/../functions/get-index", # Path to function source code
+    commands = [                                    # build commands that Terraform executes when packaging the Lambda function
+      "rm -rf node_modules",                        # Remove the existing node_modules directory
+      "npm run build",                              # Install dependencies, exclude development dependencies
+      ":zip"                                        # Special Terraform command to create a zip package of the source code. This ZIP file becomes the Lambda deployment package
     ]
   }]
 
   # Environment variables for the Lambda function
-  environment_variables = {
-    cognito_user_pool_id = aws_cognito_user_pool.main.id                 # Cognito User Pool ID
-    cognito_client_id    = aws_cognito_user_pool_client.web_client.id    # Cognito App Client ID
-    restaurants_api      = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
-    orders_api           = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/orders"
-   }
+  # Terraform `merge` takes an arbitrary number of maps or objects, and returns a single map or object that
+  # contains a merged set of elements from all arguments.
+  # https://developer.hashicorp.com/terraform/language/functions/merge
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      cognito_user_pool_id = aws_cognito_user_pool.main.id              # Cognito User Pool ID
+      cognito_client_id    = aws_cognito_user_pool_client.web_client.id # Cognito App Client ID
+      restaurants_api      = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/restaurants"
+      orders_api           = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.stage_name}/orders"
+    }
+  )
 
   # IAM permissions attached to the Lambda function's execution role
   attach_policy_statements = true
@@ -38,11 +44,11 @@ module "get_index_lambda" {
     restaurants_api_access = {
       effect = "Allow"
       actions = [
-        "execute-api:Invoke"  # Allow invoking the API Gateway /restaurants endpoint
+        "execute-api:Invoke" # Allow invoking the API Gateway /restaurants endpoint
       ]
       resources = [
         "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/GET/restaurants" # API Gateway endpoint ARN
-        ]
+      ]
     }
   }
 
@@ -53,13 +59,13 @@ module "get_index_lambda" {
   # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayGet = {
-      service    = "apigateway"                                                             # AWS service that can invoke
-      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/GET/"  # Specific API Gateway endpoint
+      service    = "apigateway"                                                            # AWS service that can invoke
+      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/GET/" # Specific API Gateway endpoint
     }
   }
 
   # CloudWatch Logs retention to control costs and storage
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
 
 
@@ -70,8 +76,8 @@ module "get_restaurants_lambda" {
   function_name = "${var.service_name}-${var.stage_name}-get-restaurants"
   handler       = "index.handler"
   runtime       = "nodejs22.x"
-  memory_size   = 1024        # Memory allocated to the function in MB
-  timeout       = 6           # Lambda function timeout in seconds
+  memory_size   = 1024 # Memory allocated to the function in MB
+  timeout       = 6    # Lambda function timeout in seconds
 
 
   source_path = [{
@@ -83,12 +89,12 @@ module "get_restaurants_lambda" {
     ]
   }]
 
-  environment_variables = {
-    restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
-    service_name      = var.service_name
-    stage_name        = var.stage_name
-    ssm_stage_name    = local.ssm_stage_name
-  }
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
+    }
+  )
 
   attach_policy_statements = true
   policy_statements = {
@@ -125,7 +131,7 @@ module "get_restaurants_lambda" {
   }
 
   # CloudWatch Logs retention to control costs and storage
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
 
 
@@ -136,8 +142,8 @@ module "search_restaurants_lambda" {
   function_name = "${var.service_name}-${var.stage_name}-search-restaurants"
   handler       = "index.handler"
   runtime       = "nodejs22.x"
-  memory_size   = 1024        # Memory allocated to the function in MB
-  timeout       = 6           # Lambda function timeout in seconds
+  memory_size   = 1024 # Memory allocated to the function in MB
+  timeout       = 6    # Lambda function timeout in seconds
 
   source_path = [{
     path = "${path.module}/../functions/search-restaurants"
@@ -148,12 +154,12 @@ module "search_restaurants_lambda" {
     ]
   }]
 
-  environment_variables = {
-    restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
-    service_name      = var.service_name
-    stage_name        = var.stage_name
-    ssm_stage_name    = local.ssm_stage_name
-  }
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      restaurants_table = module.dynamodb_restaurants_table.dynamodb_table_id
+    }
+  )
 
   attach_policy_statements = true
   policy_statements = {
@@ -199,36 +205,39 @@ module "search_restaurants_lambda" {
   }
 
   # CloudWatch Logs retention to control costs and storage
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
 
 # Lambda function for handling POST requests to the /orders endpoint
 # This function processes order placement and publishes events to EventBridge
 module "place_order_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
-  version = "~> 8.0"                            # Pin to major version for stability
+  source  = "terraform-aws-modules/lambda/aws" # Community module for Lambda functions
+  version = "~> 8.0"                           # Pin to major version for stability
 
   # Function configuration
-  function_name = "${var.service_name}-${var.stage_name}-place-order"  # Naming convention: service-function
-  handler       = "index.handler"     # Entry point: file.function
-  runtime       = "nodejs22.x"        # Node.js runtime version
-  memory_size   = 1024                # Memory allocated to the function in MB
-  timeout       = 6                   # Lambda function timeout in seconds
+  function_name = "${var.service_name}-${var.stage_name}-place-order" # Naming convention: service-function
+  handler       = "index.handler"                                     # Entry point: file.function
+  runtime       = "nodejs22.x"                                        # Node.js runtime version
+  memory_size   = 1024                                                # Memory allocated to the function in MB
+  timeout       = 6                                                   # Lambda function timeout in seconds
 
   # Source code configuration
   source_path = [{
-    path = "${path.module}/../functions/place-order"  # Path to function source code
+    path = "${path.module}/../functions/place-order" # Path to function source code
     commands = [
-      "rm -rf node_modules",   # Remove existing node_modules directory
-      "npm ci --omit=dev",     # Install production dependencies only
-      ":zip"                   # Create deployment package
+      "rm -rf node_modules", # Remove existing node_modules directory
+      "npm ci --omit=dev",   # Install production dependencies only
+      ":zip"                 # Create deployment package
     ]
   }]
 
   # Environment variables for the Lambda function
-  environment_variables = {
-    bus_name = module.eventbridge.eventbridge_bus_name  # EventBridge bus for publishing order events
-  }
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      bus_name = module.eventbridge.eventbridge_bus_name # EventBridge bus for publishing order events
+    }
+  )
 
   # IAM permissions attached to the Lambda function's execution role
   attach_policy_statements = true
@@ -237,9 +246,9 @@ module "place_order_lambda" {
     eventbridge_put = {
       effect = "Allow"
       actions = [
-        "events:PutEvents"  # Permission to publish events
+        "events:PutEvents" # Permission to publish events
       ]
-      resources = [module.eventbridge.eventbridge_bus_arn]  # Specific EventBridge bus ARN
+      resources = [module.eventbridge.eventbridge_bus_arn] # Specific EventBridge bus ARN
     }
   }
 
@@ -250,30 +259,30 @@ module "place_order_lambda" {
   # Allows API Gateway to invoke this Lambda function
   allowed_triggers = {
     APIGatewayPost = {
-      service    = "apigateway"                                                                    # AWS service that can invoke
-      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/POST/orders"  # Specific API Gateway endpoint
+      service    = "apigateway"                                                                   # AWS service that can invoke
+      source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/${var.stage_name}/POST/orders" # Specific API Gateway endpoint
     }
   }
 
   # CloudWatch Logs retention to control costs and storage
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
 
 # Lambda function to handle orders (restaurant notifications via SNS & EventBridge status updates)
 module "notify_restaurant_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
-  version = "~> 8.0"                            # Pin to major version for stability
+  source  = "terraform-aws-modules/lambda/aws" # Community module for Lambda functions
+  version = "~> 8.0"                           # Pin to major version for stability
 
   # Function configuration
-  function_name = "${var.service_name}-${var.stage_name}-notify-restaurant"  # Naming convention: service-function
-  handler       = "index.handler"     # Entry point: file.function
-  runtime       = "nodejs22.x"        # Node.js runtime version
-  memory_size   = 1024                # Memory allocated to the function in MB
-  timeout       = 6                   # Lambda function timeout in seconds
+  function_name = "${var.service_name}-${var.stage_name}-notify-restaurant" # Naming convention: service-function
+  handler       = "index.handler"                                           # Entry point: file.function
+  runtime       = "nodejs22.x"                                              # Node.js runtime version
+  memory_size   = 1024                                                      # Memory allocated to the function in MB
+  timeout       = 6                                                         # Lambda function timeout in seconds
 
   # Source code configuration
   source_path = [{
-    path = "${path.module}/../functions/notify-restaurant"  # Path to function source code
+    path = "${path.module}/../functions/notify-restaurant" # Path to function source code
     commands = [
       "rm -rf node_modules",
       "npm ci --omit=dev",
@@ -282,11 +291,14 @@ module "notify_restaurant_lambda" {
   }]
 
   # Environment variables for the Lambda function
-  environment_variables = {
-    bus_name                      = module.eventbridge.eventbridge_bus_name              # EventBridge bus for publishing events
-    restaurant_notification_topic = module.sns_restaurant_notifications.topic_arn        # SNS topic for restaurant notifications
-    idempotency_table             = module.dynamodb_idempotency_table.dynamodb_table_id  # DynamoDB table for idempotency checks
-  }
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      bus_name                      = module.eventbridge.eventbridge_bus_name             # EventBridge bus for publishing events
+      restaurant_notification_topic = module.sns_restaurant_notifications.topic_arn       # SNS topic for restaurant notifications
+      idempotency_table             = module.dynamodb_idempotency_table.dynamodb_table_id # DynamoDB table for idempotency checks
+    }
+  )
 
   # IAM permissions attached to the Lambda function's execution role
   attach_policy_statements = true
@@ -295,18 +307,18 @@ module "notify_restaurant_lambda" {
     eventbridge_put = {
       effect = "Allow"
       actions = [
-        "events:PutEvents"  # Permission to publish events
+        "events:PutEvents" # Permission to publish events
       ]
-      resources = [module.eventbridge.eventbridge_bus_arn]  # Specific EventBridge bus ARN
+      resources = [module.eventbridge.eventbridge_bus_arn] # Specific EventBridge bus ARN
     },
 
     # Allow publishing messages to SNS (for restaurant notifications)
     sns_publish = {
       effect = "Allow"
       actions = [
-        "sns:Publish"  # Permission to publish to SNS topics
+        "sns:Publish" # Permission to publish to SNS topics
       ]
-      resources = [module.sns_restaurant_notifications.topic_arn]  # Specific SNS topic ARN
+      resources = [module.sns_restaurant_notifications.topic_arn] # Specific SNS topic ARN
     }
 
     # Allow idempotency table operations
@@ -346,11 +358,11 @@ module "notify_restaurant_lambda" {
   }
 
   # OnFailure destination
-  create_async_event_config = true                                  # Controls whether async event configuration for Lambda Function/Alias should be created
-  destination_on_failure = aws_sqs_queue.notify_restaurant_dlq.arn  # ARN of the destination resource for failed asynchronous invocations
+  create_async_event_config = true                                    # Controls whether async event configuration for Lambda Function/Alias should be created
+  destination_on_failure    = aws_sqs_queue.notify_restaurant_dlq.arn # ARN of the destination resource for failed asynchronous invocations
 
   # CloudWatch Logs retention to control costs and storage
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
 
 # DLQ (Dead Letter Queue) for OnFailure destination of notify_restaurant Lambda invocations
@@ -381,7 +393,7 @@ resource "aws_cloudwatch_metric_alarm" "on_failure_queue" {
   evaluation_periods  = 1
   metric_name         = "ApproximateNumberOfMessagesVisible"
   namespace           = "AWS/SQS"
-  period              = 300  # 5 minutes
+  period              = 300 # 5 minutes
   statistic           = "Average"
   threshold           = 0
   treat_missing_data  = "notBreaching"
@@ -403,7 +415,7 @@ resource "aws_cloudwatch_metric_alarm" "destination_delivery_failures" {
   evaluation_periods  = 1
   metric_name         = "DestinationDeliveryFailures"
   namespace           = "AWS/Lambda"
-  period              = 300  # 5 minutes
+  period              = 300 # 5 minutes
   statistic           = "Sum"
   threshold           = 0
   treat_missing_data  = "notBreaching"
@@ -422,8 +434,8 @@ resource "aws_cloudwatch_metric_alarm" "destination_delivery_failures" {
 # This function writes the order information from the "order_placed" events into the "orders" DynamoDB table.
 # Function is triggered by EventBridge rule "seed_orders" which filter for "order_placed" events.
 module "seed_orders_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"  # Community module for Lambda functions
-  version = "~> 8.0"                            # Pin to major version for stability
+  source  = "terraform-aws-modules/lambda/aws" # Community module for Lambda functions
+  version = "~> 8.0"                           # Pin to major version for stability
 
   # Function configuration
   function_name = "${var.service_name}-${var.stage_name}-seed-orders"
@@ -443,10 +455,13 @@ module "seed_orders_lambda" {
   }]
 
   # Environment variables for the Lambda function
-  environment_variables = {
-    orders_table      = module.dynamodb_orders_tables.dynamodb_table_id
-    idempotency_table = module.dynamodb_idempotency_table.dynamodb_table_id
-  }
+  environment_variables = merge(
+    local.common_lambda_env_vars,
+    {
+      orders_table      = module.dynamodb_orders_tables.dynamodb_table_id
+      idempotency_table = module.dynamodb_idempotency_table.dynamodb_table_id
+    }
+  )
 
   # IAM permissions attached to the Lambda function's execution role
   attach_policy_statements = true
@@ -486,5 +501,5 @@ module "seed_orders_lambda" {
   }
 
   # CloudWatch Logs retention
-  cloudwatch_logs_retention_in_days = 7  # Keep logs for 1 week
+  cloudwatch_logs_retention_in_days = 7 # Keep logs for 1 week
 }
