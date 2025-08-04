@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@aws-lambda-powertools/idempotency": "^2.24.0"
+    "@aws-lambda-powertools/idempotency": "^2.24.0",
+    "@aws-lambda-powertools/logger": "^2.24.1"
   }
 }
