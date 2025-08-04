@@ -5,37 +5,37 @@
 # making it the default across all services for consistent and predictable behavior.
 output "AWS_REGION" {
   description = "AWS region"
-  value       = "${var.aws_region}"
+  value       = var.aws_region
 }
 
 # Service name - used for resource naming and organization
 output "service_name" {
   description = "Service name"
-  value       = "${var.service_name}"
+  value       = var.service_name
 }
 
 # Stage name - identifies the deployment environment (dev, prod, etc.)
 output "stage_name" {
   description = "Stage name"
-  value       = "${var.stage_name}"
+  value       = var.stage_name
 }
 
 # SSM stage name - used for parameter paths in SSM Parameter Store
 output "ssm_stage_name" {
   description = "SSM stage name"
-  value       = "${local.ssm_stage_name}"
+  value       = local.ssm_stage_name
 }
 
 # API Gateway URL - base URL for all API endpoints
 output "api_gateway_url" {
   description = "The URL of the API Gateway"
-  value       = "${aws_api_gateway_stage.main.invoke_url}"  # API Gateway invoke URL
+  value       = aws_api_gateway_stage.main.invoke_url # API Gateway invoke URL
 }
 
 # DynamoDB table name - used by Lambda functions to access restaurant data
 output "restaurants_table" {
   description = "The name of the restaurants table"
-  value       = "${module.dynamodb_restaurants_table.dynamodb_table_id}"  # DynamoDB table ID
+  value       = module.dynamodb_restaurants_table.dynamodb_table_id # DynamoDB table ID
 }
 
 # Restaurants API endpoint - full URL to /restaurants resource
@@ -47,7 +47,7 @@ output "restaurants_api" {
 # Cognito User Pool ID - required for authentication configuration
 output "cognito_user_pool_id" {
   description = "ID of the Cognito user pool"
-  value       = "${aws_cognito_user_pool.main.id}"
+  value       = aws_cognito_user_pool.main.id
 }
 
 # Cognito web client ID - used by frontend for user authentication
@@ -58,7 +58,7 @@ output "cognito_user_pool_id" {
 # - Used in the index.html page to configure the Cognito authentication widget
 output "cognito_client_id" {
   description = "ID of the web Cognito client"
-  value       = "${aws_cognito_user_pool_client.web_client.id}"
+  value       = aws_cognito_user_pool_client.web_client.id
 }
 
 # Cognito server client ID - used for server-side authentication flows
@@ -69,19 +69,19 @@ output "cognito_client_id" {
 # - Performing user management operations from backend services
 output "cognito_server_client_id" {
   description = "ID of the server Cognito client"
-  value       = "${aws_cognito_user_pool_client.server_client.id}"
+  value       = aws_cognito_user_pool_client.server_client.id
 }
 
 # EventBridge bus name - used to publish and subscribe to events
 output "eventbridge_bus_name" {
   description = "EventBridge bus name"
-  value       = "${module.eventbridge.eventbridge_bus_name}"
+  value       = module.eventbridge.eventbridge_bus_name
 }
 
 # EventBridge bus ARN - used for IAM permissions and cross-account integrations
 output "eventbridge_bus_arn" {
   description = "EventBridge bus ARN"
-  value       = "${module.eventbridge.eventbridge_bus_arn}"
+  value       = module.eventbridge.eventbridge_bus_arn
 }
 
 # Orders API endpoint - full URL to /orders resource
@@ -94,7 +94,7 @@ output "orders_api" {
 # Restaurant notifications SNS topic ARN - used for subscribing restaurant notification handlers
 output "restaurant_notification_topic" {
   description = "ARN of the restaurant notifications SNS topic"
-  value       = "${module.sns_restaurant_notifications.topic_arn}"
+  value       = module.sns_restaurant_notifications.topic_arn
 }
 
 # Test E2E SQS queue URL - used for end-to-end (E2E) testing
@@ -108,5 +108,12 @@ output "e2e_test_queue_url" {
 # Tests can access this table name to check idempotency token storage and retrieval
 output "idempotency_table" {
   description = "The name of the idempotency table"
-  value       = "${module.dynamodb_idempotency_table.dynamodb_table_id}"
+  value       = module.dynamodb_idempotency_table.dynamodb_table_id
+}
+
+// Powertools logger configuration - controls logging verbosity across Lambda functions
+// https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#utility-settings
+output "POWERTOOLS_LOG_LEVEL" {
+  description = "Log level for the Lambda powertools logger"
+  value       = local.log_level
 }
