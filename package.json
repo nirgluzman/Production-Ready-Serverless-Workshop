@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "bootstrap-db": "node --env-file=.env seed-restaurants.mjs",
-    "test:integration": "cross-env TEST_MODE=handler vitest -t '\\[int\\]'",
+    "test:int": "cross-env TEST_MODE=handler vitest -t '\\[int\\]'",
     "test:e2e": "cross-env TEST_MODE=http vitest -t '\\[e2e\\]'"
   },
   "repository": {
