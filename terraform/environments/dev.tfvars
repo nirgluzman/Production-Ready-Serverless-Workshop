@@ -7,6 +7,7 @@
 # - .tfvars files often contain sensitive information. Therefore, they are typically not source controlled.
 #
 
-aws_region   = "us-east-1"           # AWS region for resource deployment
-stage_name   = "dev"                 # Environment identifier (dev/staging/prod)
-service_name = "prsls-tf-workshop"   # Service name for resource naming and tagging
+aws_region   = "us-east-1"            # AWS region for resource deployment
+aws_profile  = "workshop-serverless"  # AWS CLI credentials profile
+stage_name   = "dev"                  # Environment identifier (dev/staging/prod)
+service_name = "prsls-tf-workshop"    # Service name for resource naming and tagging

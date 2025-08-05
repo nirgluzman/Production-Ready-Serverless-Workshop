@@ -6,6 +6,12 @@ variable "aws_region" {
   type        = string
 }
 
+# AWS profile used for deployment
+variable "aws_profile" {
+  description = "AWS profile"
+  type        = string
+}
+
 # Environment/stage identifier for resource naming and tagging
 variable "stage_name" {
   description = "Stage name (e.g. dev, prod)"
@@ -24,5 +30,5 @@ variable "service_name" {
 variable "ssm_stage_name" {
   description = "Stage name used in SSM parameter paths (e.g., /service/stage/...). If not provided, defaults to stage_name value."
   type        = string
-  default     = null  # When null, the main stage_name will be used instead
+  default     = null # When null, the main stage_name will be used instead
 }
