@@ -15,6 +15,14 @@ import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge
 // AWS Lambda Powertools utilities
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+
+// Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
+// before and after our main handler code runs.
+// https://github.com/middyjs/middy
+// https://middy.js.org/docs/intro/how-it-works/
+// @middy/core: Middleware to simplify common Lambda tasks
+import middy from '@middy/core';
 
 // Chance library for generating random values (used for order IDs)
 import { Chance } from 'chance';
@@ -36,7 +44,10 @@ const busName = process.env.bus_name;
  * @param {Object} event - API Gateway event object
  * @returns {Object} HTTP response with status code and order ID
  */
-export const handler = async (event) => {
+export const handler = middy(async (event, context) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   // Extract restaurant name from the request body
   const restaurantName = JSON.parse(event.body).restaurantName;
 
@@ -78,4 +89,4 @@ export const handler = async (event) => {
   };
 
   return response;
-};
+}).use(injectLambdaContext(logger));

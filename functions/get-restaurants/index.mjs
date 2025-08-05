@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 // AWS Lambda Powertools utilities
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
@@ -55,6 +56,9 @@ const getRestaurants = async (count) => {
 
 // AWS Lambda handler function - returns list of restaurants as JSON
 export const handler = middy(async (event, context) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   // function handler logic
   const restaurants = await getRestaurants(context.config.defaultResults); // Fetch restaurants from DynamoDB
   const response = {
@@ -63,19 +67,21 @@ export const handler = middy(async (event, context) => {
   };
 
   return response;
-}).use(
-  // configuration of middy SSM middleware, https://middy.js.org/docs/intro/how-it-works/
-  ssm({
-    // cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
-    cache: true,
-    // cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store,
-    // then the concurrent executions would load the new value when their cache expires, without needing a deployment.
-    cacheExpiry: 1 * 60 * 1000,
-    // set the SSM parameter value to the Lambda context, so we can access it in our handler
-    setToContext: true,
-    // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
-    fetchData: {
-      config: `/${service_name}/${ssm_stage_name}/get-restaurants/config`,
-    },
-  })
-);
+})
+  .use(
+    // configuration of middy SSM middleware, https://middy.js.org/docs/intro/how-it-works/
+    ssm({
+      // cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
+      cache: true,
+      // cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store,
+      // then the concurrent executions would load the new value when their cache expires, without needing a deployment.
+      cacheExpiry: 1 * 60 * 1000,
+      // set the SSM parameter value to the Lambda context, so we can access it in our handler
+      setToContext: true,
+      // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
+      fetchData: {
+        config: `/${service_name}/${ssm_stage_name}/get-restaurants/config`,
+      },
+    })
+  )
+  .use(injectLambdaContext(logger));

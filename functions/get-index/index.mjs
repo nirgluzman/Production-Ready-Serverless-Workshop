@@ -11,6 +11,14 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SD
 // AWS Lambda Powertools utilities
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+
+// Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
+// before and after our main handler code runs.
+// https://github.com/middyjs/middy
+// https://middy.js.org/docs/intro/how-it-works/
+// @middy/core: Middleware to simplify common Lambda tasks
+import middy from '@middy/core';
 
 // Initialize structured logger with service name from environment
 const logger = new Logger({ serviceName: process.env.service_name });
@@ -62,7 +70,10 @@ const getRestaurants = async () => {
   return await resp.json();
 };
 
-export const handler = async (event, context) => {
+export const handler = middy(async (event, context) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   const restaurants = await getRestaurants();
 
   // console.log(`found ${restaurants.length} restaurants`);
@@ -91,4 +102,4 @@ export const handler = async (event, context) => {
   };
 
   return response;
-};
+}).use(injectLambdaContext(logger));

@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 // AWS Lambda Powertools utilities
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
@@ -55,6 +56,9 @@ const findRestaurantsByTheme = async (theme, count) => {
 
 // AWS Lambda handler function - searches restaurants by theme
 export const handler = middy(async (event, context) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   const req = JSON.parse(event.body); // Parse JSON request body
   const theme = req.theme; // Extract theme parameter from request
 
@@ -77,23 +81,25 @@ export const handler = middy(async (event, context) => {
   };
 
   return response;
-}).use(
-  // configuration of middy SSM middleware, https://middy.js.org/docs/intro/how-it-works/
-  ssm({
-    // cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
-    cache: true,
-    // cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store,
-    // then the concurrent executions would load the new value when their cache expires, without needing a deployment.
-    cacheExpiry: 1 * 60 * 1000,
-    // set the SSM parameter value to the Lambda context (not as an environment variable), so we can access it in our handler - RECOMMENDED APPROACH!
-    setToContext: true,
-    // assign parameters to the context object of the function handler rather than to process.env (defaults to false)
-    fetchData: {
-      // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
-      config: `/${service_name}/${ssm_stage_name}/search-restaurants/config`,
-      secretString: `/${service_name}/${ssm_stage_name}/search-restaurants/secretString`,
-    },
-    // Set to false to continue if parameter doesn't exist (defaults to false)
-    throwOnFailedCall: false,
-  })
-);
+})
+  .use(
+    // configuration of middy SSM middleware, https://middy.js.org/docs/intro/how-it-works/
+    ssm({
+      // cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
+      cache: true,
+      // cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store,
+      // then the concurrent executions would load the new value when their cache expires, without needing a deployment.
+      cacheExpiry: 1 * 60 * 1000,
+      // set the SSM parameter value to the Lambda context (not as an environment variable), so we can access it in our handler - RECOMMENDED APPROACH!
+      setToContext: true,
+      // assign parameters to the context object of the function handler rather than to process.env (defaults to false)
+      fetchData: {
+        // fetches individual parameters and stores them in either the invocation context object (setToContext) or the environment variables (default)
+        config: `/${service_name}/${ssm_stage_name}/search-restaurants/config`,
+        secretString: `/${service_name}/${ssm_stage_name}/search-restaurants/secretString`,
+      },
+      // Set to false to continue if parameter doesn't exist (defaults to false)
+      throwOnFailedCall: false,
+    })
+  )
+  .use(injectLambdaContext(logger));
