@@ -30,6 +30,9 @@ const logger = new Logger({ serviceName: process.env.service_name });
 
 // AWS Lambda handler function
 const _handler = async (event) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   // Extract order details from EventBridge event
   const order = event.detail;
 
