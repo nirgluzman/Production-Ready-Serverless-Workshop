@@ -24,8 +24,11 @@ const viaHandler = async (event, functionName) => {
   // Dynamically import the Lambda handler based on function name
   const { handler } = await import(`${APP_ROOT}/functions/${functionName}/index.mjs`);
 
-  // Create empty Lambda context object
-  const context = {};
+  // Create Lambda context object
+  const context = {
+    // Mimic Lambda's getRemainingTimeInMillis to determine the time left in this invocation - required by makeHandlerIdempotent idempotency checker.
+    getRemainingTimeInMillis: () => 5000,
+  };
   // Invoke the handler with event and context
   const response = await handler(event, context);
   // Extract content type with default to application/json
