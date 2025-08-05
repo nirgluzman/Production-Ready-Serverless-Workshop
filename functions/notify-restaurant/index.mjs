@@ -13,10 +13,19 @@ import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 // AWS Lambda Powertools utilities
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
-// Idempotency handling - idempotency ensures the same operation can be called multiple times safely without side effects.
-import { makeIdempotent } from '@aws-lambda-powertools/idempotency';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+// // Idempotency handling - idempotency ensures the same operation can be called multiple times safely without side effects.
+// import { makeIdempotent } from '@aws-lambda-powertools/idempotency'; // general-purpose function to wrap any function to make it idempotent.
+import { makeHandlerIdempotent } from '@aws-lambda-powertools/idempotency/middleware'; // Middy middleware specifically designed for an AWS Lambda handler.
 // DynamoDB persistence layer for storing idempotency keys and preventing duplicate processing
 import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
+
+// Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
+// before and after our main handler code runs.
+// https://github.com/middyjs/middy
+// https://middy.js.org/docs/intro/how-it-works/
+// @middy/core: Middleware to simplify common Lambda tasks
+import middy from '@middy/core';
 
 // Initialize clients (created outside handler for connection reuse)
 const eventBridge = new EventBridgeClient();
@@ -46,6 +55,9 @@ const logger = new Logger({ serviceName: process.env.service_name });
  * @returns {string} orderId - Returns order ID for idempotency key generation
  */
 export const _handler = async (event) => {
+  // Reset sampling calculation to determine if this invocation should log debug messages
+  logger.refreshSampleRateCalculation();
+
   // Extract order details from the EventBridge event
   const order = event.detail;
 
@@ -92,7 +104,17 @@ export const _handler = async (event) => {
   return orderId;
 };
 
-// Export the idempotent-wrapped handler as the main Lambda handler
-// makeIdempotent wraps _handler with idempotency logic using the DynamoDB persistence store
-// This ensures the function executes only once per unique event, preventing duplicate notifications
-export const handler = makeIdempotent(_handler, { persistenceStore });
+// // Export the idempotent-wrapped handler as the main Lambda handler
+// // makeIdempotent wraps _handler with idempotency logic using the DynamoDB persistence store
+// // This ensures the function executes only once per unique event, preventing duplicate notifications
+// export const handler = makeIdempotent(_handler, { persistenceStore });
+
+// Export handler with Middy middleware chain
+export const handler = middy(_handler)
+  .use(injectLambdaContext(logger)) // automatically adds Lambda context to all log messages
+  .use(
+    // prevents duplicate processing using DynamoDB persistence
+    makeHandlerIdempotent({
+      persistenceStore,
+    })
+  );
