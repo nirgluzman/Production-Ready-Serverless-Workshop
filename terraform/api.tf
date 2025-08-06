@@ -3,10 +3,10 @@
 
 # Main REST API resource with regional endpoint for better performance and lower latency.
 resource "aws_api_gateway_rest_api" "main" {
-  name = "${var.service_name}-${var.stage_name}"  # Naming convention: service-environment
+  name = "${var.service_name}-${var.stage_name}" # Naming convention: service-environment
 
   endpoint_configuration {
-    types = ["REGIONAL"]  # Regional endpoints route traffic directly to the API within a specific AWS region, while edge-optimized endpoints use CloudFront to distribute traffic through edge locations.
+    types = ["REGIONAL"] # Regional endpoints route traffic directly to the API within a specific AWS region, while edge-optimized endpoints use CloudFront to distribute traffic through edge locations.
   }
 }
 
@@ -14,7 +14,35 @@ resource "aws_api_gateway_rest_api" "main" {
 resource "aws_api_gateway_stage" "main" {
   deployment_id = aws_api_gateway_deployment.main.id
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  stage_name    = var.stage_name  # Environment identifier
+  stage_name    = var.stage_name # Environment identifier
+
+  # Enable X-Ray tracing
+  xray_tracing_enabled = true
+}
+
+# IAM role for API Gateway to enable X-Ray tracing
+# This role allows API Gateway to write trace data to AWS X-Ray for request monitoring and debugging
+resource "aws_iam_role" "api_gateway" {
+  name = "${var.service_name}-${var.stage_name}-api-gateway"
+
+  # Trust policy allowing API Gateway service to assume this role
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "apigateway.amazonaws.com"
+      }
+    }]
+  })
+}
+
+# Attach AWS managed policy for X-Ray write access
+# Grants API Gateway permission to send trace data to X-Ray service
+resource "aws_iam_role_policy_attachment" "api_gateway_xray" {
+  role       = aws_iam_role.api_gateway.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 # API Gateway deployment - creates a snapshot of the API configuration
@@ -48,9 +76,9 @@ resource "aws_api_gateway_deployment" "main" {
 # Allows public access without authentication
 resource "aws_api_gateway_method" "get_index" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_rest_api.main.root_resource_id  # Root resource (/)
-  http_method   = "GET"                                           # HTTP GET requests
-  authorization = "NONE"                                          # No authentication required
+  resource_id   = aws_api_gateway_rest_api.main.root_resource_id # Root resource (/)
+  http_method   = "GET"                                          # HTTP GET requests
+  authorization = "NONE"                                         # No authentication required
 }
 
 # Lambda proxy integration for the GET / endpoint
@@ -60,9 +88,9 @@ resource "aws_api_gateway_integration" "get_index" {
   resource_id = aws_api_gateway_rest_api.main.root_resource_id
   http_method = aws_api_gateway_method.get_index.http_method
 
-  integration_http_method = "POST"                                              # What HTTP method API Gateway will use to call the integration target - Lambda always uses POST
-  type                    = "AWS_PROXY"                                         # Proxy integration passes full request
-  uri                     = module.get_index_lambda.lambda_function_invoke_arn  # Lambda function ARN
+  integration_http_method = "POST"                                             # What HTTP method API Gateway will use to call the integration target - Lambda always uses POST
+  type                    = "AWS_PROXY"                                        # Proxy integration passes full request
+  uri                     = module.get_index_lambda.lambda_function_invoke_arn # Lambda function ARN
 }
 
 # Integration type:
@@ -80,18 +108,18 @@ resource "aws_api_gateway_integration" "get_index" {
 # Creates a new path under the root resource to handle restaurant-related requests
 resource "aws_api_gateway_resource" "restaurants" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_rest_api.main.root_resource_id  # Attach to root resource (/)
-  path_part   = "restaurants"                                   # Creates /restaurants path
+  parent_id   = aws_api_gateway_rest_api.main.root_resource_id # Attach to root resource (/)
+  path_part   = "restaurants"                                  # Creates /restaurants path
 }
 
 # HTTP GET method for /restaurants endpoint
 # Allows clients to retrieve restaurant data without authentication
 resource "aws_api_gateway_method" "get_restaurants" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.restaurants.id  # Link to /restaurants resource.
-  http_method   = "GET"                                    # HTTP GET requests.
-  authorization = "AWS_IAM"                                # Use AWS IAM for authorization, allowing only AWS services/users to access this endpoint.
-                                                           # I.e. the caller needs to have the necessary IAM permission to access this endpoint.
+  resource_id   = aws_api_gateway_resource.restaurants.id # Link to /restaurants resource.
+  http_method   = "GET"                                   # HTTP GET requests.
+  authorization = "AWS_IAM"                               # Use AWS IAM for authorization, allowing only AWS services/users to access this endpoint.
+  # I.e. the caller needs to have the necessary IAM permission to access this endpoint.
 }
 
 # Lambda proxy integration for GET /restaurants
@@ -101,24 +129,24 @@ resource "aws_api_gateway_integration" "get_restaurants" {
   resource_id = aws_api_gateway_resource.restaurants.id
   http_method = aws_api_gateway_method.get_restaurants.http_method
 
-  integration_http_method = "POST"                                           # Lambda invocation always uses POST
-  type                    = "AWS_PROXY"                                       # Full request context passed to Lambda
-  uri                     = module.get_restaurants_lambda.lambda_function_invoke_arn  # Target Lambda function
+  integration_http_method = "POST"                                                   # Lambda invocation always uses POST
+  type                    = "AWS_PROXY"                                              # Full request context passed to Lambda
+  uri                     = module.get_restaurants_lambda.lambda_function_invoke_arn # Target Lambda function
 }
 
 # API Gateway resource for /restaurants/search endpoint
 resource "aws_api_gateway_resource" "search" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.restaurants.id    # Attach to restaurants resource (/restaurants)
-  path_part   = "search"                                   # Creates /restaurants/search path
+  parent_id   = aws_api_gateway_resource.restaurants.id # Attach to restaurants resource (/restaurants)
+  path_part   = "search"                                # Creates /restaurants/search path
 }
 
 # HTTP POST method for /restaurants/search
 resource "aws_api_gateway_method" "search_restaurants" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   resource_id   = aws_api_gateway_resource.search.id
-  http_method   = "POST"                # HTTP POST requests
-  authorization = "COGNITO_USER_POOLS"  # Use Cognito User Pools for authorization, allowing only authenticated users to access this endpoint
+  http_method   = "POST"                                # HTTP POST requests
+  authorization = "COGNITO_USER_POOLS"                  # Use Cognito User Pools for authorization, allowing only authenticated users to access this endpoint
   authorizer_id = aws_api_gateway_authorizer.cognito.id # Link to the Cognito authorizer
 }
 
@@ -129,18 +157,18 @@ resource "aws_api_gateway_integration" "search_restaurants" {
   http_method = aws_api_gateway_method.search_restaurants.http_method
 
   integration_http_method = "POST"
-  type = "AWS_PROXY"
-  uri  = module.search_restaurants_lambda.lambda_function_invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = module.search_restaurants_lambda.lambda_function_invoke_arn
 }
 
 # API Gateway Cognito Authorizer
 # Validates JWT tokens issued by Cognito User Pool before allowing access to protected endpoints.
 # Clients must include valid JWT token in Authorization header to access protected resources.
 resource "aws_api_gateway_authorizer" "cognito" {
-  name          = "CognitoAuthorizer"                   # Authorizer identifier
-  type          = "COGNITO_USER_POOLS"                  # Use Cognito User Pools for authorization
-  rest_api_id   = aws_api_gateway_rest_api.main.id      # Link to API Gateway
-  provider_arns = [aws_cognito_user_pool.main.arn]      # Cognito User Pool that issues valid tokens
+  name          = "CognitoAuthorizer"              # Authorizer identifier
+  type          = "COGNITO_USER_POOLS"             # Use Cognito User Pools for authorization
+  rest_api_id   = aws_api_gateway_rest_api.main.id # Link to API Gateway
+  provider_arns = [aws_cognito_user_pool.main.arn] # Cognito User Pool that issues valid tokens
 }
 
 # API Gateway resource for /orders endpoint
@@ -166,6 +194,6 @@ resource "aws_api_gateway_integration" "post_orders" {
   http_method = aws_api_gateway_method.post_orders.http_method
 
   integration_http_method = "POST"
-  type = "AWS_PROXY"
-  uri  = module.place_order_lambda.lambda_function_invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = module.place_order_lambda.lambda_function_invoke_arn
 }
