@@ -19,6 +19,9 @@ import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import { makeHandlerIdempotent } from '@aws-lambda-powertools/idempotency/middleware'; // Middy middleware specifically designed for an AWS Lambda handler.
 // DynamoDB persistence layer for storing idempotency keys and preventing duplicate processing
 import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
+// Opinionated wrapper for AWS X-Ray
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
 
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
@@ -30,6 +33,16 @@ import middy from '@middy/core';
 // Initialize clients (created outside handler for connection reuse)
 const eventBridge = new EventBridgeClient();
 const sns = new SNSClient();
+
+// Initialize X-Ray tracer with service name for distributed tracing
+// Creating a Tracer would automatically capture outgoing HTTP requests
+const tracer = new Tracer({ serviceName: process.env.service_name });
+
+// Capture EventBridge operations in X-Ray traces for performance monitoring
+tracer.captureAWSv3Client(eventBridge);
+
+// Capture SNS operations in X-Ray traces for performance monitoring
+tracer.captureAWSv3Client(sns);
 
 // Get configuration from environment variables
 const busName = process.env.bus_name; // EventBridge bus name
@@ -111,7 +124,10 @@ export const _handler = async (event) => {
 
 // Export handler with Middy middleware chain
 export const handler = middy(_handler)
-  .use(injectLambdaContext(logger)) // automatically adds Lambda context to all log messages
+  // Automatically inject Lambda context (request ID, function name, etc.) into all log messages
+  .use(injectLambdaContext(logger))
+  // Add ##functions/notify-restaurant.handler segment to the X-Ray trace, and captures cold start, service name, and response of the invocation
+  .use(captureLambdaHandler(tracer))
   .use(
     // prevents duplicate processing using DynamoDB persistence
     makeHandlerIdempotent({

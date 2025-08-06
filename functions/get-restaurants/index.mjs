@@ -6,6 +6,9 @@ import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+// Opinionated wrapper for AWS X-Ray
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
 
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
@@ -23,6 +26,13 @@ const logger = new Logger({ serviceName: process.env.service_name });
 // Initialize DynamoDB clients (created outside handler for connection reuse)
 const dynamodbClient = new DynamoDB({}); // Low-level DynamoDB client
 const dynamodb = DynamoDBDocumentClient.from(dynamodbClient); // Document client for easier JSON handling
+
+// Initialize X-Ray tracer with service name for distributed tracing
+// Creating a Tracer would automatically capture outgoing HTTP requests
+const tracer = new Tracer({ serviceName: process.env.service_name });
+
+// Capture DynamoDB operations in X-Ray traces for performance monitoring (e.g. DynamoDB Scan API call)
+tracer.captureAWSv3Client(dynamodb);
 
 // Environment variables
 const { service_name, ssm_stage_name } = process.env;
@@ -84,4 +94,7 @@ export const handler = middy(async (event, context) => {
       },
     })
   )
-  .use(injectLambdaContext(logger));
+  // Automatically inject Lambda context (request ID, function name, etc.) into all log messages
+  .use(injectLambdaContext(logger))
+  // Add ##functions/get-restaurants.handler segment to the X-Ray trace, and captures cold start, service name, and response of the invocation
+  .use(captureLambdaHandler(tracer));

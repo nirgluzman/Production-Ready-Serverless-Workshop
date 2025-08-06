@@ -12,6 +12,9 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers'; // AWS SD
 // Logger with output structured as JSON
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
+// Opinionated wrapper for AWS X-Ray
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
 
 // Middy is a middleware engine designed for serverless functions, enabling us to execute custom logic
 // before and after our main handler code runs.
@@ -22,6 +25,10 @@ import middy from '@middy/core';
 
 // Initialize structured logger with service name from environment
 const logger = new Logger({ serviceName: process.env.service_name });
+
+// Initialize X-Ray tracer with service name for distributed tracing
+// Creating a Tracer would automatically capture outgoing HTTP requests (such as the request to the GET /restaurants endpoint)
+const tracer = new Tracer({ serviceName: process.env.service_name });
 
 // Environment variables
 const awsRegion = process.env.AWS_REGION;
@@ -67,7 +74,14 @@ const getRestaurants = async () => {
     throw new Error('Failed to fetch restaurants: ' + resp.statusText);
   }
 
-  return await resp.json();
+  // Parse JSON response from restaurants API
+  const data = await resp.json();
+
+  // Add HTTP response to metadata for the ##functions/get-index.handler segment in the X-Ray trace
+  tracer.addResponseAsMetadata(data, 'GET /restaurants');
+
+  // Return restaurant list for template rendering
+  return data;
 };
 
 export const handler = middy(async (event, context) => {
@@ -102,4 +116,8 @@ export const handler = middy(async (event, context) => {
   };
 
   return response;
-}).use(injectLambdaContext(logger));
+})
+  // Automatically inject Lambda context (request ID, function name, etc.) into all log messages
+  .use(injectLambdaContext(logger))
+  // Add ##functions/get-index.handler segment to the X-Ray trace, and captures cold start, service name, and response of the invocation
+  .use(captureLambdaHandler(tracer));
