@@ -18,14 +18,4 @@ locals {
   # Conditionally configure the log level - Powertools for AWS Lambda Logger.
   # The log level (like DEBUG, INFO, etc.) determines the verbosity of our application's custom log messages.
   log_level = var.stage_name == "prod" ? "INFO" : "DEBUG"
-
-  # Common Lambda environment variables (captures all the environment variables we've so far).
-  common_lambda_env_vars = {
-    service_name                  = var.service_name
-    stage_name                    = var.stage_name
-    ssm_stage_name                = local.ssm_stage_name
-    POWERTOOLS_LOG_LEVEL          = local.log_level # INFO for prod, DEBUG for dev.
-    POWERTOOLS_LOGGER_SAMPLE_RATE = "0.1"           # Sample 10% of logs regardless of log level.
-    POWERTOOLS_LOGGER_LOG_EVENT   = "true"          # Log the incoming Lambda event payload; NOTE: may include PII/sensitive info.
-  }
 }
