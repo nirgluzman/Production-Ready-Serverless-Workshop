@@ -86,7 +86,8 @@ npm run test:e2e
 │   ├── get-restaurants/       # Restaurant listing
 │   ├── search-restaurants/    # Restaurant search
 │   ├── place-order/           # Order placement
-│   └── notify-restaurant/     # Restaurant notifications
+│   ├── notify-restaurant/     # Restaurant notifications
+│   └── seed-orders/           # Save order data in DynamoDB table from EventBridge events
 ├── terraform/                 # Infrastructure as Code
 │   ├── environments/          # Environment-specific configs
 │   ├── config/                # Backend configurations
