@@ -10,7 +10,7 @@
 ### Integration Tests (`[int]`)
 - **Purpose**: Test Lambda handlers directly without HTTP layer
 - **Mode**: `TEST_MODE=handler`
-- **Command**: `npm run test:integration`
+- **Command**: `npm run test:int`
 - **Focus**: Business logic, AWS service integrations, data transformations
 
 ### End-to-End Tests (`[e2e]`)

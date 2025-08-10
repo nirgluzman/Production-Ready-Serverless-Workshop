@@ -31,10 +31,10 @@ functions/
 └── seed-orders/           # Order data persistence from EventBridge events
 
 # Each function contains:
-├── index.js               # Main handler (CommonJS)
+├── index.mjs              # Main handler (ES modules)
 ├── package.json           # Function dependencies with build script
 ├── node_modules/          # Dependencies (generated)
-└── static/                # Static assets (if needed)
+└── static/                # Static assets (if needed, only get-index has this)
 ```
 
 ## Test Structure (`tests/`)
@@ -72,6 +72,8 @@ terraform/
 ├── config/               # Backend configuration files (.backend.hcl)
 ├── builds/               # Lambda deployment packages (generated)
 ├── state_machines/       # Step Functions ASL definitions
+├── modules/              # Custom Terraform modules
+│   └── lambda-function/  # Opinionated Lambda function wrapper module
 └── script-*.sh           # Workspace management scripts
 ```
 
@@ -86,7 +88,7 @@ terraform/
 
 ### Files
 
-- **Lambda Handlers**: `index.js` (CommonJS) - all functions use CommonJS
+- **Lambda Handlers**: `index.mjs` (ES modules) - all functions use ES modules with import/export syntax
 - **Terraform Files**: Descriptive names (`main.tf`, `lambda.tf`, `api.tf`, `data.tf`, `locals.tf`, `ssm.tf`)
 - **Environment Files**: `${environment}.tfvars`
 - **Backend Config**: `${environment}.backend.hcl`
@@ -122,7 +124,7 @@ The GitHub Actions workflow provides automated deployment with the following sta
 ## Key Patterns
 
 - Each Lambda function is self-contained with its own dependencies
-- Terraform modules are used for complex resources (DynamoDB, Lambda, EventBridge, SNS)
+- Custom Terraform module (`modules/lambda-function`) wraps terraform-aws-modules/lambda/aws with opinionated defaults
 - Environment-specific configuration via `.tfvars` files
 - Remote state management with S3 backend and DynamoDB locking
 - Workspace-based ephemeral environments for feature development

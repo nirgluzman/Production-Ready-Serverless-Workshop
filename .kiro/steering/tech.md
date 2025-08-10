@@ -2,7 +2,7 @@
 
 ## Runtime & Languages
 - **Node.js**: Runtime for Lambda functions
-- **JavaScript**: CommonJS modules (.js) - all Lambda functions use CommonJS
+- **JavaScript**: ES modules (.mjs) - all Lambda functions use ES modules with import/export syntax
 - **Terraform**: Infrastructure as Code (IaC)
 
 ## AWS Services
@@ -20,21 +20,30 @@
 - **KMS**: Key management for encrypted parameters
 
 ## Key Dependencies
-- `@aws-sdk/client-dynamodb` & `@aws-sdk/lib-dynamodb`: AWS SDK v3 for DynamoDB
-- `@aws-sdk/client-cognito-identity-provider`: Cognito operations
+
+### Lambda Function Dependencies
+- `@aws-lambda-powertools/logger`: Structured logging with JSON output
+- `@aws-lambda-powertools/tracer`: X-Ray distributed tracing wrapper
+- `@middy/core`: Lambda middleware engine for common tasks
+- `@middy/ssm`: SSM Parameter Store middleware for Middy
+- `aws4fetch`: AWS request signing for authenticated API calls
+- `mustache`: Template rendering for HTML responses (get-index function)
+
+### AWS SDK v3 (Testing Dependencies)
+- `@aws-sdk/client-dynamodb` & `@aws-sdk/lib-dynamodb`: DynamoDB operations
+- `@aws-sdk/client-cognito-identity-provider`: Cognito user management
 - `@aws-sdk/client-eventbridge`: EventBridge event publishing
 - `@aws-sdk/client-sns`: SNS notifications
 - `@aws-sdk/client-sqs`: SQS queue operations for testing
 - `@aws-sdk/client-ssm`: Parameter Store access
 - `@aws-sdk/credential-providers`: AWS credential management
-- `@middy/core` & `@middy/ssm`: Lambda middleware framework
-- `aws4fetch`: AWS request signing for API calls
-- `mustache`: Template rendering for HTML responses
-- `vitest`: Modern testing framework with ES modules
+
+### Testing Framework Dependencies
+- `vitest`: Modern testing framework with ES modules support
 - `cheerio`: HTML parsing for frontend tests
-- `chance`: Random data generation for tests
+- `chance`: Random data generation for test scenarios
 - `lodash`: Utility functions for data manipulation
-- `rxjs`: Reactive programming for async operations
+- `rxjs`: Reactive programming for async test operations (message polling)
 - `cross-env`: Cross-platform environment variables
 
 ## Build System
@@ -61,7 +70,7 @@ Terraform handles Lambda packaging automatically with build commands:
 npm run bootstrap-db
 
 # Run integration tests
-npm run test:integration
+npm run test:int
 
 # Run end-to-end tests
 npm run test:e2e
